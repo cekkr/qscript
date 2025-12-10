@@ -19,6 +19,34 @@ if (c0) { work.Flip(target: 2, when: true) }
 
 The language makes quantum/classical boundaries explicit: `where:` is a quantum predicate evaluated in superposition; `when:` is a classical guard after measurement.
 
+## How 4 Primitives Cover the Usual Gate Zoo
+PsiScript keeps the surface small and lets the compiler choose gates. A few common patterns:
+
+- `Superpose(targets: i)` → Hadamard on qubit *i*.
+- `Phase(angle: θ, where: reg[i])` → Z-rotation on *i*; add one control for CZ, two controls for CCZ, etc.
+- `Flip(target: t)` → X on *t*; add controls in `where` for CX / Toffoli / multi-controlled X (with automatic helper X for `== 0` guards).
+- `Reflect(axis: Axis.MEAN)` → Grover diffusion (H on all → X on all → multi-controlled Z → X on all → H on all).
+
+Gate sketches in PsiScript:
+
+```psi
+// CNOT (control 0, target 1)
+reg.Flip(target: 1, where: reg[0] == 1);
+
+// Toffoli (controls 0 & 1, target 2)
+reg.Flip(target: 2, where: reg[0] == 1 && reg[1] == 1);
+
+// Controlled-Z (controls 0 & 1)
+reg.Phase(angle: PI, where: reg[0] == 1 && reg[1] == 1); // CCZ with a single predicate
+
+// SWAP(0,2) using three CNOT-equivalents
+reg.Flip(target: 2, where: reg[0] == 1);
+reg.Flip(target: 0, where: reg[2] == 1);
+reg.Flip(target: 2, where: reg[0] == 1);
+```
+
+Everything stays at the “constraint” level; synthesis decides whether to emit qelib1 gates, ancilla ladders, or topology-aware swaps.
+
 ## Repository Map
 - `PsiScript-Definition.md` – Technical reference and semantics for the language (v1.0).
 - `psiscripts/` – Worked examples (teleportation, Grover SAT, QFT3, GHZ, BV, etc.) using the four primitives.

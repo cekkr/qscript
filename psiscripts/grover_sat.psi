@@ -1,27 +1,23 @@
-let logic_space = Register(3); // Scales to 2^n search space with n qubits
+let logic_space = Register(3); // Sculpting loop scales to 2^n with n qubits
 
-// 1. Initialization: Create the full search space (8 realities)
+// 1. Expansion: create the full search block (8 realities)
 logic_space.Superpose(targets: ALL);
 
-// 2. THE ORACLE (Defining the valid solution)
-// We "mark" the solution by flipping the phase of any state
-// that satisfies the Boolean condition.
+// 2. CHISEL: tag the satisfying assignment with a negative phase
 // Condition: (Q0 OR Q1) AND (NOT Q0 OR Q2)
 logic_space.Phase(angle: PI, where: 
     (logic_space[0] || logic_space[1]) && 
     (!logic_space[0] || logic_space[2])
 );
 
-// 3. THE DIFFUSION (Amplification)
-// Geometric reflection around the mean to boost the marked state.
+// 3. INTERFERENCE: reflect to convert the tag into a probability peak
 logic_space.Reflect(axis: Axis.MEAN);
 
 // 4. Repeat (Grover requires sqrt(N) iterations)
-// For 3 qubits, ~2 iterations are optimal.
 logic_space.Phase(angle: PI, where: 
     (logic_space[0] || logic_space[1]) && 
     (!logic_space[0] || logic_space[2])
-); // Repeat Oracle
-logic_space.Reflect(axis: Axis.MEAN);   // Repeat Reflection
+); // Repeat tag
+logic_space.Reflect(axis: Axis.MEAN);   // Repeat sculpting
 
 let solution = logic_space.Measure();

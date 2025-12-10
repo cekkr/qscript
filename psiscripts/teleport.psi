@@ -1,23 +1,21 @@
 let system = Register(3);
 // Index Map: 0=Payload, 1=Alice_Link, 2=Bob_Link
 
-// --- SETUP: Create the quantum bridge (Entanglement) ---
+// --- SETUP: Expand and entangle a bridge ---
 system.Superpose(targets: 1);
-system.Flip(target: 2, where: system[1] == 1);
+system.Flip(target: 2, where: system[1] == 1); // Pivot to create the shared EPR pair
 
-// --- ALICE'S ACTION: Link Payload to Bridge ---
-// Alice performs a Bell Measurement preparation on her side (0 & 1)
-system.Flip(target: 1, where: system[0] == 1); // CNOT Payload -> Alice_Link
-system.Superpose(targets: 0);                  // Hadamard on Payload
+// --- ALICE'S ACTION: Embed the payload into the bridge ---
+system.Flip(target: 1, where: system[0] == 1); // Payload controls the bridge half
+system.Superpose(targets: 0);                  // Spread payload phase into the joint space
 
 // --- MEASUREMENT & CLASSICAL TRANSFER ---
-// Alice measures her two atoms. This collapses the state.
+// Alice collapses her side; the payload information now lives as tags on Bob's qubit.
 let c1 = Measure(system[0]);
 let c2 = Measure(system[1]);
 
-// --- BOB'S CORRECTION (The "active" reconstruction) ---
-// Bob adjusts Qubit 2 based on the classical bits. Classical guards are expressed with `when:`.
+// --- BOB'S CORRECTION (classical guards steer the pivot) ---
 system.Flip(target: 2, when: c2 == 1); // X-correction (bit flip)
-system.Phase(angle: PI, where: system[2] == 1, when: c1 == 1); // Z-correction (phase flip)
+system.Phase(angle: PI, where: system[2] == 1, when: c1 == 1); // Phase correction (chisel guided by classical bit)
 
 // Qubit 2 now holds the exact original state of Payload.

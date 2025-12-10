@@ -1,10 +1,10 @@
 // Build a 3-qubit GHZ state: (|000> + |111>) / sqrt(2). Scales to N-qubit GHZ/cluster states.
 let ghz = Register(3);
 
-// Seed coherence on the first qubit
+// Seed the block on the first qubit
 ghz.Superpose(targets: 0);
 
-// Copy the phase bit to the rest (controlled flips)
+// Pivot the tag to the rest (controlled flips)
 ghz.Flip(target: 1, where: ghz[0] == 1);
 ghz.Flip(target: 2, where: ghz[0] == 1);
 

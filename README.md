@@ -1,23 +1,24 @@
-# PsiScript / qscript
+# PsiScript / qscript (v1.1)
 
 (Concept phase)
 
-PsiScript is a high-level, geometry-oriented quantum description language. Instead of chaining hardware-level gates, you script **geometric transformations and constraints** on a state vector using four primitives—`Superpose`, `Phase`, `Reflect`, and `Flip`. The goal is to keep the abstraction close to how a circuit actually behaves (compute–phase–uncompute, ancilla management, interference), while letting you reason in terms of amplitude geometry rather than gate soup.
+PsiScript is a high-level quantum description language framed around **Interference Sculpting**. You script how to **expand** a space of possibilities, **tag** regions with complex phase, **trigger interference** to carve away the wrong answers, and **pivot** data—all with four primitives: `Superpose`, `Phase`, `Reflect`, and `Flip`. The syntax stays lightweight while the semantics emphasize carving a $2^N$-dimensional block of probability.
 
 ```psi
 let work = Register(3)
-work.Superpose(targets: ALL)
-work.Phase(angle: PI, where: work[0] == work[1])
-let c0 = Measure(work[0])
-if (c0) { work.Flip(target: 2, when: true) }
+work.Superpose(targets: ALL)                           // Expansion
+work.Phase(angle: PI, where: work[0] == work[1])       // Phase tag (the chisel)
+work.Reflect(axis: Axis.MEAN)                          // Interference trigger
+let c0 = Measure(work[0])                              // Collapse boundary
+if (c0) { work.Flip(target: 2, when: true) }           // Classical correction
 ```
 
-- `Superpose` spreads amplitude (Hadamards under the hood).
-- `Phase` encodes logic as phase kickback (oracles with automatic compute/uncompute).
-- `Reflect` amplifies marked states (diffusion).
-- `Flip` entangles and moves data (X/CNOT/Toffoli families).
+- `Superpose` inflates the search space.
+- `Phase` is the logical chisel: tag states with imaginary phase (negative amplitude for deletes; fractional angles for frequency).
+- `Reflect` converts tags into probability shifts via destructive/constructive interference.
+- `Flip` pivots indices to entangle or reorder data; guarded by quantum `where` or classical `when`.
 
-The language makes quantum/classical boundaries explicit: `where:` is a quantum predicate evaluated in superposition; `when:` is a classical guard after measurement.
+Quantum/classical boundaries stay explicit: `where:` is a quantum predicate across the full superposition; `when:` is classical after measurement.
 
 ## How 4 Primitives Cover the Usual Gate Zoo
 PsiScript keeps the surface small and lets the compiler choose gates. A few common patterns:
@@ -48,9 +49,10 @@ reg.Flip(target: 2, where: reg[0] == 1);
 Everything stays at the “constraint” level; synthesis decides whether to emit qelib1 gates, ancilla ladders, or topology-aware swaps.
 
 ## Repository Map
-- `PsiScript-Definition.md` – Technical reference and semantics for the language (v1.0).
-- `psiscripts/` – Worked examples (teleportation, Grover SAT, QFT3, GHZ, BV, etc.) using the four primitives.
-- `viewer-references/` – Python helpers to visualize interference patterns and build intuition for quantum circuits (`wave_viewer.py`, `psi_interference_viewer.py`).
+- `PsiScript-Definition.md` – v1.1 reference manual (Interference Sculpting semantics).
+- `definitions/v1.1-upgrade.md` – Narrative framing of the v1.1 shift (chisel/reflect/expand).
+- `psiscripts/` – Worked examples (teleportation, Grover sculpting loop, QFT3 tagging, GHZ, BV, etc.) using the four primitives.
+- `viewer-references/` – Python helpers to visualize interference patterns and build intuition for phase tagging and collapse (`wave_viewer.py`, `psi_interference_viewer.py`).
 - `compiler/` – Experimental Python-based compiler that lowers PsiScript to OpenQASM (`qasm_compiler.py`).
 - `psi_lang.py` – Shared parser/predicate utilities used by the viewer and compiler.
 
@@ -66,7 +68,7 @@ python viewer-references/wave_viewer.py
 Try toggling the Gaussian packet setup vs. the harmonic oscillator section to see how interference and phase coloring relate to circuit-level phase logic.
 
 ### Step-by-step PsiScript playback
-`viewer-references/psi_interference_viewer.py` loads a `.psi` file, simulates each primitive, and shows a 3D surface where height = probability density and color = phase. Use the slider/buttons to watch interference evolve and see measurement collapses annotated in the title.
+`viewer-references/psi_interference_viewer.py` loads a `.psi` file, simulates each primitive, and shows a 3D surface where height = probability density and color = phase. Use the slider/buttons to watch the sculpting process (phase tags → reflect → collapse) and see measurement events annotated in the title.
 
 ```bash
 # Teleportation, deterministic measurements via seed
@@ -77,7 +79,7 @@ python viewer-references/psi_interference_viewer.py psiscripts/qft_3.psi --regis
 ```
 
 ## Learning the Language
-Start from `PsiScript-Definition.md` for syntax and synthesis rules. Then open `psiscripts/EXAMPLES.md` and the corresponding `.psi` files to see how common algorithms are expressed geometrically. As the compiler matures, the `compile/` area will house the OpenQASM transpilation pipeline so PsiScript can target real hardware backends.
+Start from `PsiScript-Definition.md` for syntax and the v1.1 sculpting semantics. Then open `psiscripts/EXAMPLES.md` and the `.psi` files to see how algorithms are expressed as “expand → tag → interfere → pivot → measure.” As the compiler matures, the `compiler/` area will house the OpenQASM transpilation pipeline so PsiScript can target real hardware backends.
 
 ## Compiling to OpenQASM (experimental)
 `compiler/qasm_compiler.py` is a best-effort translator from PsiScript to OpenQASM 2.0 (qelib1). It lowers:

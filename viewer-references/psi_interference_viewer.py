@@ -1,10 +1,10 @@
 """
-PsiScript interference viewer.
+PsiScript interference viewer (v1.1 sculpting lens).
 
 This script loads a `.psi` program, simulates its quantum operations,
 and renders a 3D surface where height = probability density and color = phase.
-Use the slider or buttons to step through the script and see how interference
-and measurements reshape the state vector.
+Use the slider or buttons to step through the script and see how phase tags,
+reflections, and measurements reshape the state vector.
 
 Run locally (Python 3, numpy, matplotlib):
     python viewer-references/psi_interference_viewer.py psiscripts/teleport.psi --seed 1

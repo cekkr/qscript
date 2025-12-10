@@ -1,17 +1,17 @@
 // Bernstein-Vazirani with hidden string s = 101
 let bv = Register(3); // Q0 (LSB) ... Q2 (MSB)
 
-// 1) Create uniform superposition over all bitstrings
+// 1) Expansion: uniform superposition over all bitstrings
 bv.Superpose(targets: ALL);
 
-// 2) Oracle: phase flip when x · s (mod 2) = 1
+// 2) Oracle: negative phase tag when x · s (mod 2) = 1
 // For s = 101, the parity is x0 XOR x2 (x1 is ignored).
 // XOR expressed with AND/OR so it compiles via the standard oracle path.
 bv.Phase(angle: PI, where: 
     (bv[0] && !bv[2]) || (!bv[0] && bv[2])
 );
 
-// 3) Decode the hidden string back into amplitudes
+// 3) Decode the tags back into amplitudes
 bv.Superpose(targets: ALL);
 
 // 4) Measure: yields |101> with certainty

@@ -1,22 +1,22 @@
-Register q = new Register(3);
+let q = Register(3);
 // Input: Some superposition of data...
 
 // --- STEP 1: Handle Qubit 0 (Most Significant) ---
-q.Superpose(0); // Hadamard
+q.Superpose(targets: 0); // Hadamard
 // Conditional rotations based on lower bits
 // "Rotate Q0 by 90 degrees if Q1 is 1"
-q.Phase(PI/2, WHERE q[0]==1 && q[1]==1); 
+q.Phase(angle: PI/2, where: q[0] == 1 && q[1] == 1); 
 // "Rotate Q0 by 45 degrees if Q2 is 1"
-q.Phase(PI/4, WHERE q[0]==1 && q[2]==1); 
+q.Phase(angle: PI/4, where: q[0] == 1 && q[2] == 1); 
 
 // --- STEP 2: Handle Qubit 1 ---
-q.Superpose(1);
+q.Superpose(targets: 1);
 // "Rotate Q1 by 90 degrees if Q2 is 1"
-q.Phase(PI/2, WHERE q[1]==1 && q[2]==1);
+q.Phase(angle: PI/2, where: q[1] == 1 && q[2] == 1);
 
 // --- STEP 3: Handle Qubit 2 (Least Significant) ---
-q.Superpose(2);
+q.Superpose(targets: 2);
 
 // --- SWAP Network (QFT usually reverses bit order) ---
-q.Flip(0, IF q[2] == 1); // Complex swap logic simplified here for readability
-q.Flip(2, IF q[0] == 1); // In reality requires 3 CNOTs to swap 0 and 2
+q.Flip(target: 0, where: q[2] == 1); // Complex swap logic simplified for readability
+q.Flip(target: 2, where: q[0] == 1); // In reality requires 3 CNOTs to swap 0 and 2

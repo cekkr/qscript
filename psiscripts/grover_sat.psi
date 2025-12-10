@@ -1,24 +1,27 @@
-Register logic_space = new Register(3);
+let logic_space = Register(3);
 
 // 1. Initialization: Create the full search space (8 realities)
-logic_space.Superpose(ALL);
+logic_space.Superpose(targets: ALL);
 
 // 2. THE ORACLE (Defining the valid solution)
 // We "mark" the solution by flipping the phase of any state
 // that satisfies the Boolean condition.
 // Condition: (Q0 OR Q1) AND (NOT Q0 OR Q2)
-logic_space.Phase(PI, WHERE 
+logic_space.Phase(angle: PI, where: 
     (logic_space[0] || logic_space[1]) && 
     (!logic_space[0] || logic_space[2])
 );
 
 // 3. THE DIFFUSION (Amplification)
 // Geometric reflection around the mean to boost the marked state.
-logic_space.Reflect(Axis.MEAN);
+logic_space.Reflect(axis: Axis.MEAN);
 
 // 4. Repeat (Grover requires sqrt(N) iterations)
 // For 3 qubits, ~2 iterations are optimal.
-logic_space.Phase(PI, WHERE ...); // Repeat Oracle
-logic_space.Reflect(Axis.MEAN);   // Repeat Reflection
+logic_space.Phase(angle: PI, where: 
+    (logic_space[0] || logic_space[1]) && 
+    (!logic_space[0] || logic_space[2])
+); // Repeat Oracle
+logic_space.Reflect(axis: Axis.MEAN);   // Repeat Reflection
 
-Result solution = logic_space.Measure();
+let solution = logic_space.Measure();

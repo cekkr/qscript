@@ -4,7 +4,7 @@ Welcome to the **PsiScript** examples repository.
 
 PsiScript is a high-level theoretical quantum programming language designed to abstract away the physical "wires" of quantum circuits. Instead of thinking in gates (`H`, `CNOT`, `Z`), PsiScript allows the programmer to think in **Geometric Primitives** and **Logical Constraints**.
 
-This repository contains 5 core examples demonstrating how standard quantum algorithms are synthesized using the four PsiScript primitives (shown with the lightweight `let` declaration style and `where/when` guards):
+This repository contains 7 examples demonstrating how standard quantum algorithms are synthesized using the four PsiScript primitives (shown with the lightweight `let` declaration style and `where/when` guards):
 1.  **`Superpose`** (Create Possibilities)
 2.  **`Phase`** (Mark/Tag Logic)
 3.  **`Reflect`** (Amplify Solutions)
@@ -74,6 +74,25 @@ This repository contains 5 core examples demonstrating how standard quantum algo
     * `reg.Flip(target: 1, where: reg[0] == 1)`.
     * This synthesizes a **CNOT**. Q1 becomes `1` if the inputs are different, `0` if they are the same.
 * *Insight:* This shows that classical logic is just a subset of quantum logic where we restrict ourselves to `Flip` operations and ignore superposition.
+
+---
+
+### 6. `ghz.psi` (Three-Way Entanglement)
+**Goal:** Build a GHZ state `( |000> + |111> ) / sqrt(2)` that shows perfect three-party correlation.
+
+* **Step 1: Seed coherence.** `ghz.Superpose(targets: 0)` creates a superposition on the first qubit.
+* **Step 2: Fan-out via controlled flips.** `ghz.Flip(target: 1, where: ghz[0] == 1)` and `ghz.Flip(target: 2, where: ghz[0] == 1)` copy the phase bit to the other qubits.
+* **Outcome:** Measuring any qubit determines the rest; there are no mixed outcomes like `010` or `101`.
+
+---
+
+### 7. `bernstein_vazirani.psi` (Hidden String Recovery)
+**Goal:** Learn a hidden classical string `s` with a single oracle query using phase kickback.
+
+* **Step 1: Spread queries.** `bv.Superpose(targets: ALL)` creates all candidate bitstrings.
+* **Step 2: Phase oracle.** For `s = 101`, `bv.Phase(angle: PI, where: (bv[0] && !bv[2]) || (!bv[0] && bv[2]))` flips the sign when `x · s (mod 2) = 1`.
+* **Step 3: Decode.** Another `bv.Superpose(targets: ALL)` converts the phase pattern back to amplitudes.
+* **Outcome:** Measuring yields `101` with certainty, showing how PsiScript expresses phase oracles and global decoding succinctly.
 
 ---
 

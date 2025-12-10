@@ -19,8 +19,6 @@ Quick anchors to the v1.1 “Interference Sculpting” model so follow-up prompt
   - Wave intuition: `viewer-references/wave_viewer.py` sketches interference patterns for teaching.  
   - Parsing utilities: `psi_lang.py` defines `PsiScriptParser`, predicate helpers, and angle eval.
 - **Known gaps / TODOs:**  
-  - `compiler/qasm_compiler.py`: `Reflect` is still a comment placeholder; extend emitter for diffusion or provide library macro.  
   - Phase/flip lowering only supports simple conjunctive predicates (see `parse_conjunctive_controls`); extend for broader `where` expressions.  
   - Add automated checks/examples to guard v1.1 semantics (unit tests for parser + viewer?) once CI strategy exists.  
   - Consider adding v1.1-focused walkthroughs (interference sculpting diagrams) under `viewer-references/` or README visuals.
-

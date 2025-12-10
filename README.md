@@ -87,7 +87,7 @@ Start from `PsiScript-Definition.md` for syntax and the v1.1 sculpting semantics
 - `Flip` → X/CX/CCX with automatic helper X gates for `== 0` controls.
 - `Phase` → U1/CU1 for simple conjunctive `where` predicates (up to two controls), TODO for larger cases.
 - `Measure` → OpenQASM `measure` with optional `when:` guards emitted as `if`.
-- `Reflect` is documented but currently emitted as a comment placeholder.
+- `Reflect` → Grover-style diffusion (H → X → multi-controlled Z → X → H) with an ancilla chain for 3+ qubits.
 
 Example:
 ```bash

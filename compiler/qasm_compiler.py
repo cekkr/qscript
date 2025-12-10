@@ -28,19 +28,15 @@ class QasmBuilder:
     def __init__(self, register: str, num_qubits: int):
         self.reg = register
         self.n = num_qubits
-        self.lines: List[str] = [
-            "OPENQASM 2.0;",
-            'include "qelib1.inc";',
-            f"qreg {self.reg}[{self.n}];",
-        ]
+        self.op_lines: List[str] = []
         self.cregs: Dict[str, int] = {}
+        self.qregs: Dict[str, int] = {self.reg: self.n}
         self.tmp_counter = 0
 
     def ensure_creg(self, name: str, size: int):
         if name in self.cregs:
             return
         self.cregs[name] = size
-        self.lines.append(f"creg {name}[{size}];")
 
     def tmp_creg(self, size: int) -> str:
         name = f"tmp{self.tmp_counter}"
@@ -49,10 +45,19 @@ class QasmBuilder:
         return name
 
     def emit(self, text: str):
-        self.lines.append(text)
+        self.op_lines.append(text)
+
+    def ensure_qreg(self, name: str, size: int):
+        if name in self.qregs:
+            self.qregs[name] = max(self.qregs[name], size)
+            return
+        self.qregs[name] = size
 
     def render(self) -> str:
-        return "\n".join(self.lines) + "\n"
+        header = ["OPENQASM 2.0;", 'include "qelib1.inc";']
+        qreg_lines = [f"qreg {name}[{size}];" for name, size in self.qregs.items()]
+        creg_lines = [f"creg {name}[{size}];" for name, size in self.cregs.items()]
+        return "\n".join(header + qreg_lines + creg_lines + self.op_lines) + "\n"
 
 
 class OpenQasmCompiler:
@@ -149,7 +154,26 @@ class OpenQasmCompiler:
         self.builder.emit(f"// TODO: multi-control flip for predicate '{op.predicate}' not lowered")
 
     def _emit_reflect(self, op: PsiOperation):
-        self.builder.emit(f"// Reflect around mean not lowered (psi op: {op.raw})")
+        axis = (op.axis or "").upper()
+        if "MEAN" not in axis:
+            self.builder.emit(f"// TODO: Reflect axis '{op.axis}' not lowered")
+            return
+
+        n = self.num_qubits
+        # Grover diffusion: H^n X^n (multi-CZ) X^n H^n
+        for q in range(n):
+            self.builder.emit(f"h {self.register}[{q}];")
+        for q in range(n):
+            self.builder.emit(f"x {self.register}[{q}];")
+
+        controls = list(range(n - 1))  # control on all but last qubit
+        target = n - 1
+        self._emit_multi_control_z(controls, target)
+
+        for q in range(n):
+            self.builder.emit(f"x {self.register}[{q}];")
+        for q in range(n):
+            self.builder.emit(f"h {self.register}[{q}];")
 
     def _emit_measure(self, op: PsiOperation):
         if op.measure_all:
@@ -195,6 +219,55 @@ class OpenQasmCompiler:
                 self.builder.ensure_creg(name, 1)
             return f"{name}==0"
         return None
+
+    def _emit_multi_control_z(self, controls: List[int], target: int):
+        """
+        Best-effort multi-controlled Z using H-target, multi-controlled X, H-target.
+        """
+        if not controls:
+            self.builder.emit(f"z {self.register}[{target}];")
+            return
+
+        self.builder.emit(f"h {self.register}[{target}];")
+        self._emit_multi_control_x(controls, target)
+        self.builder.emit(f"h {self.register}[{target}];")
+
+    def _emit_multi_control_x(self, controls: List[int], target: int):
+        """
+        Decompose multi-controlled X with an ancilla chain (k-2 ancillas for k>2).
+        """
+        k = len(controls)
+        reg = self.register
+        if k == 0:
+            self.builder.emit(f"x {reg}[{target}];")
+            return
+        if k == 1:
+            self.builder.emit(f"cx {reg}[{controls[0]}],{reg}[{target}];")
+            return
+        if k == 2:
+            self.builder.emit(f"ccx {reg}[{controls[0]}],{reg}[{controls[1]}],{reg}[{target}];")
+            return
+
+        anc_count = k - 2
+        anc_name = f"anc_{reg}"
+        self.builder.ensure_qreg(anc_name, anc_count)
+
+        # Compute chain
+        self.builder.emit(f"ccx {reg}[{controls[0]}],{reg}[{controls[1]}],{anc_name}[0];")
+        for i in range(2, k - 1):
+            src_anc = i - 2
+            dst_anc = i - 1
+            self.builder.emit(f"ccx {reg}[{controls[i]}],{anc_name}[{src_anc}],{anc_name}[{dst_anc}];")
+
+        # Final controlled X on target
+        self.builder.emit(f"ccx {reg}[{controls[-1]}],{anc_name}[{anc_count - 1}],{reg}[{target}];")
+
+        # Uncompute chain
+        for i in reversed(range(2, k - 1)):
+            src_anc = i - 2
+            dst_anc = i - 1
+            self.builder.emit(f"ccx {reg}[{controls[i]}],{anc_name}[{src_anc}],{anc_name}[{dst_anc}];")
+        self.builder.emit(f"ccx {reg}[{controls[0]}],{reg}[{controls[1]}],{anc_name}[0];")
 
 
 def main():

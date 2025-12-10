@@ -1,5 +1,7 @@
 # PsiScript / qscript
 
+(Concept phase)
+
 PsiScript is a high-level, geometry-oriented quantum description language. Instead of chaining hardware-level gates, you script **geometric transformations and constraints** on a state vector using four primitives—`Superpose`, `Phase`, `Reflect`, and `Flip`. The goal is to keep the abstraction close to how a circuit actually behaves (compute–phase–uncompute, ancilla management, interference), while letting you reason in terms of amplitude geometry rather than gate soup.
 
 ```psi

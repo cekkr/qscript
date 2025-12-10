@@ -1,0 +1,18 @@
+Register reg = new Register(4); 
+// Q0 = Input A, Q1 = Input B (will become Sum), Q2 = CarryOut, Q3 = Ancilla
+
+// 1. Calculate Carry (Majority Logic)
+// If A and B are both 1, then Carry is 1.
+// Toffoli Gate: Flip Q2 if Q0 and Q1 are 1.
+reg.Flip(2, IF reg[0] == 1 && reg[1] == 1);
+
+// 2. Calculate Sum (XOR Logic)
+// Sum = A XOR B.
+// We apply this to Q1. "Flip Q1 if Q0 is 1".
+// This overwrites B with the Sum (A XOR B).
+reg.Flip(1, IF reg[0] == 1);
+
+// Result:
+// Q0 = A (Unchanged, needed for reversibility)
+// Q1 = Sum
+// Q2 = Carry

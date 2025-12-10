@@ -1,0 +1,32 @@
+Register system = new Register(3);
+// Index Map: 0=Payload, 1=Alice_Link, 2=Bob_Link
+
+// --- SETUP: Create the quantum bridge (Entanglement) ---
+system.Superpose(1);
+system.Flip(2, IF system[1] == 1);
+
+// --- ALICE'S ACTION: Link Payload to Bridge ---
+// Alice performs a Bell Measurement preparation on her side (0 & 1)
+system.Flip(1, IF system[0] == 1); // CNOT Payload -> Alice_Link
+system.Superpose(0);               // Hadamard on Payload
+
+// --- MEASUREMENT & CLASSICAL TRANSFER ---
+// Alice measures her two atoms. This collapses the state.
+Bit c1 = Measure(system[0]);
+Bit c2 = Measure(system[1]);
+
+// --- BOB'S CORRECTION (The "active" reconstruction) ---
+// Bob adjusts Qubit 2 based on the bits received via classical phone/cable.
+// Note: These run conditionally on the classical processor.
+
+if (c2 == 1) {
+    // Logic: X-Correction (Bit Flip)
+    system.Flip(2); 
+}
+if (c1 == 1) {
+    // Logic: Z-Correction (Phase Flip)
+    // We use Phase(PI) because a 180° rotation is mathematically a Z-gate.
+    system.Phase(PI, WHERE system[2] == 1); 
+}
+
+// Qubit 2 now holds the exact original state of Payload.

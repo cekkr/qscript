@@ -1,0 +1,17 @@
+// 1. Initialize Register
+// Two qubits, A and B. Initial state |00> (North-North)
+Register pair = new Register(2);
+
+// 2. Create Potential (Hadamard)
+// Action: Spread Qubit 0's amplitude equally.
+// Table State: |00> + |10>
+pair.Superpose(target: 0);
+
+// 3. Entangle (CNOT)
+// Action: "If Qubit 0 is 1, Flip Qubit 1".
+// This correlates the two clocks. Liquid moves from #10 to #11.
+pair.Flip(target: 1, IF pair[0] == 1);
+
+// 4. Verify
+// The only non-empty clocks are now #00 and #11.
+Result output = pair.Measure();

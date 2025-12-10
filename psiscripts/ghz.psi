@@ -1,4 +1,4 @@
-// Build a 3-qubit GHZ state: (|000> + |111>) / sqrt(2)
+// Build a 3-qubit GHZ state: (|000> + |111>) / sqrt(2). Scales to N-qubit GHZ/cluster states.
 let ghz = Register(3);
 
 // Seed coherence on the first qubit

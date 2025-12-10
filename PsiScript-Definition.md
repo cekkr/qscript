@@ -33,6 +33,7 @@ if (c1) { work.Phase(angle: PI, where: work[2], when: true) }
 - **Indexing:** `reg[i]` always refers to the *i*th qubit inside that register.
 - **Conditions:** `where:` is a quantum predicate (evaluated in superposition and compiled into an oracle). `when:` is a classical guard (evaluated after measurement results exist). Use `where` for entangling logic; use `when` for host-side branching.
 - **Measurement is a wall:** Once you `Measure`, the following statements are purely classical until you call a primitive on an existing register again.
+- **Why `Measure(reg[i])` and not `reg[i].measure()`?** Measurement is irreversible and leaves the quantum domain; making it a top-level verb (not a method) signals the classical boundary to the programmer and avoids suggesting it composes like a unitary call chain.
 
 ---
 
@@ -85,6 +86,7 @@ Swaps amplitudes between basis vectors; expresses conditional logic and entangle
 - You can own multiple registers simultaneously for clarity (e.g., `let data = Register(3), anc = Register(2)`). Operations act on one register at a time; crossing registers requires an explicit shared predicate (e.g., `data.Flip(target: 2, where: anc[0])`).
 - Classical `Bit` values come from `Measure(register[index])` or host-provided literals.
 - Functions/macros can accept registers as arguments; the language keeps the surface syntax lightweight and scripting-friendly.
+- **Scaling intuition:** Increasing qubit count grows the computational space exponentially (n qubits → 2^n amplitudes). PsiScript’s `Superpose + Phase + Reflect` patterns become dramatically more useful when n grows beyond a handful, enabling search/amplification, hidden-pattern finding, and distributed entanglement (e.g., GHZ, teleportation chains).
 
 ---
 

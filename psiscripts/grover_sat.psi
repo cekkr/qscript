@@ -1,4 +1,4 @@
-let logic_space = Register(3);
+let logic_space = Register(3); // Scales to 2^n search space with n qubits
 
 // 1. Initialization: Create the full search space (8 realities)
 logic_space.Superpose(targets: ALL);

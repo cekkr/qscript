@@ -1,4 +1,4 @@
-let q = Register(3);
+let q = Register(3); // Extend qubit count for larger Fourier transforms
 // Input: Some superposition of data...
 
 // --- STEP 1: Handle Qubit 0 (Most Significant) ---

@@ -2,7 +2,7 @@
 
 Welcome to the **PsiScript** examples repository.
 
-PsiScript is a high-level theoretical quantum programming language designed to abstract away the physical "wires" of quantum circuits. Instead of thinking in gates (`H`, `CNOT`, `Z`), PsiScript allows the programmer to think in **Geometric Primitives** and **Logical Constraints**.
+PsiScript is a high-level theoretical quantum programming language designed to abstract away the physical "wires" of quantum circuits. Instead of thinking in gates (`H`, `CNOT`, `Z`), PsiScript allows the programmer to think in **Geometric Primitives** and **Logical Constraints**. As qubit counts rise, these primitives let you describe exponentially large state spaces (2^n amplitudes) with short, readable scripts.
 
 This repository contains 7 examples demonstrating how standard quantum algorithms are synthesized using the four PsiScript primitives (shown with the lightweight `let` declaration style and `where/when` guards):
 1.  **`Superpose`** (Create Possibilities)

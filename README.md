@@ -67,7 +67,7 @@ reg.Flip(target: 2, where: reg[0] == 1);
 Everything stays at the “constraint” level; synthesis decides whether to emit qelib1 gates, ancilla ladders, or topology-aware swaps.
 
 ## Hybrid Pulse Layer (v1.2)
-When you need hardware detail, drop into `Analog { ... }` to describe Bloch-sphere motion with explicit durations and envelopes. Use `Align` to show simultaneous branches (e.g., echo while a partner idles), and frame tools (`ShiftPhase`, `SetFreq`) to keep virtual Z tracking explicit. Pulse blocks are currently emitted as comments in QASM output and recorded as timeline markers in the viewer.
+When you need hardware detail, drop into `Analog { ... }` to describe Bloch-sphere motion with explicit durations and envelopes. Use `Align` to show simultaneous branches (e.g., echo while a partner idles), and frame tools (`ShiftPhase`, `SetFreq`) to keep virtual Z tracking explicit. Pulse blocks are compiled into a Python-side pulse schedule (`compiler/pulse_compiler.py`); the QASM emitter still uses comments for pulse regions.
 
 ## Repository Map
 - `PsiScript-Definition.md` – v1.2 hybrid manual (logic sculpting + analog layer).
@@ -110,11 +110,16 @@ Start from `PsiScript-Definition.md` for syntax and the v1.2 hybrid semantics. T
 - `Measure` → OpenQASM `measure` with optional `when:` guards emitted as `if`.
 - `Reflect` → Grover-style diffusion (H → X → multi-controlled Z → X → H) with an ancilla chain for 3+ qubits.
 
-Pulse-layer ops (`Analog`, `Rotate`, `Wait`, `ShiftPhase`, `SetFreq`, `Play`, `Acquire`, `Align`) are emitted as comments to preserve schedule intent; they are not lowered to hardware waveforms yet.
+Pulse-layer ops (`Analog`, `Rotate`, `Wait`, `ShiftPhase`, `SetFreq`, `Play`, `Acquire`, `Align`) now lower into a timestamped Python schedule for synthesis; the OpenQASM output still records them as comments.
 
 Example:
 ```bash
 python compiler/qasm_compiler.py psiscripts/teleport.psi --out build/teleport.qasm
+```
+
+Pulse timelines (Analog/Rotate/Wait/ShiftPhase/SetFreq/Play/Acquire) can be inspected directly from Python:
+```bash
+python compiler/pulse_compiler.py psiscripts/ghost_filter.psi --json
 ```
 
 The emitted QASM includes TODO comments where predicates are too complex to lower; extend `parse_conjunctive_controls` and the emitters to broaden coverage.

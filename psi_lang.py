@@ -258,7 +258,7 @@ class PsiScriptParser:
             metadata = {"label": label}
             targets = [branch_idx] if branch_idx is not None else []
             op = PsiOperation(kind="branch", register=reg, targets=targets, raw=stmt, scope=scope, metadata=metadata)
-            ctx = {"default_register": reg}
+            ctx = {"default_register": reg, "analog_context": (reg, branch_idx)}
             return op, ctx
 
         if stmt.startswith("Rotate"):

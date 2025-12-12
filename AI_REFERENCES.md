@@ -23,6 +23,6 @@ Quick anchors to the v1.2 **Hybrid (Logic ↔ Pulse)** model so follow-up prompt
   - Wave intuition: `viewer-references/wave_viewer.py` sketches interference patterns for teaching.  
   - Parser/lowering: `psi_lang.py` understands `Analog/Rotate/Align/...`; `compiler/qasm_compiler.py` emits QASM for logic ops and comments for pulse ops.
 - **Known gaps / TODOs:**  
-  - Pulse-level physics is not simulated; use `compiler/pulse_compiler.py` to get a timestamped schedule while QASM still carries comments for analog sections.  
+  - Pulse-level physics is not simulated; use `compiler/qasm_compiler.py --pulse-*` to get a timestamped schedule and replay it through the simulator abstraction while QASM still carries comments for analog sections.  
   - `where` lowering still limited to simple conjunctions (extend `parse_conjunctive_controls`).  
   - Add tests around the new parser branches/analog handling once CI exists; consider waveform libraries or hardware back-ends for pulse export.

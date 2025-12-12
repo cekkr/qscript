@@ -2,7 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from compiler.pulse_compiler import PulseLayerCompiler
+from compiler.qasm_compiler import LoggingPulseBackend, PulseScheduler, PulseSimulator
+from psi_lang import PsiScriptParser
 
 
 def _write_tmp_script(content: str) -> Path:
@@ -24,7 +25,9 @@ class TestPulseCompiler(unittest.TestCase):
         }
         """
         path = _write_tmp_script(script)
-        schedule = PulseLayerCompiler(str(path)).compile()
+        parser = PsiScriptParser(str(path))
+        registers, _ = parser.parse()
+        schedule = PulseScheduler(parser, registers).build()
 
         kinds = [evt.kind for evt in schedule.events]
         self.assertEqual(kinds, ["rotate", "wait", "shiftphase", "acquire"])
@@ -48,7 +51,9 @@ class TestPulseCompiler(unittest.TestCase):
         }
         """
         path = _write_tmp_script(script)
-        schedule = PulseLayerCompiler(str(path)).compile()
+        parser = PsiScriptParser(str(path))
+        registers, _ = parser.parse()
+        schedule = PulseScheduler(parser, registers).build()
 
         self.assertEqual(len(schedule.events), 2)
         starts = {evt.target: evt.start_ns for evt in schedule.events}
@@ -62,6 +67,26 @@ class TestPulseCompiler(unittest.TestCase):
         self.assertEqual(schedule.duration_ns, 25.0)
         self.assertEqual(branches[0], "q[0]")
         self.assertEqual(branches[1], "q[1]")
+
+    def test_simulator_replays_events(self):
+        script = """
+        let q = Register(1);
+        Analog(target: q[0]) {
+            Rotate(axis: X, angle: PI/2, duration: 10ns);
+            Wait(duration: 5ns);
+        }
+        """
+        path = _write_tmp_script(script)
+        parser = PsiScriptParser(str(path))
+        registers, _ = parser.parse()
+        schedule = PulseScheduler(parser, registers).build()
+
+        backend = LoggingPulseBackend()
+        summary = PulseSimulator(backend).run(schedule)
+
+        self.assertEqual(summary["event_count"], 2)
+        self.assertEqual(len(backend.events), 2)
+        self.assertGreater(summary["duration_ns"], 0.0)
 
 
 if __name__ == "__main__":

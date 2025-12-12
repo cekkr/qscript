@@ -67,7 +67,7 @@ reg.Flip(target: 2, where: reg[0] == 1);
 Everything stays at the “constraint” level; synthesis decides whether to emit qelib1 gates, ancilla ladders, or topology-aware swaps.
 
 ## Hybrid Pulse Layer (v1.2)
-When you need hardware detail, drop into `Analog { ... }` to describe Bloch-sphere motion with explicit durations and envelopes. Use `Align` to show simultaneous branches (e.g., echo while a partner idles), and frame tools (`ShiftPhase`, `SetFreq`) to keep virtual Z tracking explicit. Pulse blocks are compiled into a Python-side pulse schedule (`compiler/pulse_compiler.py`); the QASM emitter still uses comments for pulse regions.
+When you need hardware detail, drop into `Analog { ... }` to describe Bloch-sphere motion with explicit durations and envelopes. Use `Align` to show simultaneous branches (e.g., echo while a partner idles), and frame tools (`ShiftPhase`, `SetFreq`) to keep virtual Z tracking explicit. Pulse blocks compile into a Python-side pulse schedule via `compiler/qasm_compiler.py --pulse-*`; the QASM emitter still uses comments for pulse regions. The schedule can be replayed through a pluggable simulator backend (no physics yet).
 
 ## Repository Map
 - `PsiScript-Definition.md` – v1.2 hybrid manual (logic sculpting + analog layer).
@@ -117,9 +117,13 @@ Example:
 python compiler/qasm_compiler.py psiscripts/teleport.psi --out build/teleport.qasm
 ```
 
-Pulse timelines (Analog/Rotate/Wait/ShiftPhase/SetFreq/Play/Acquire) can be inspected directly from Python:
+Pulse timelines (Analog/Rotate/Wait/ShiftPhase/SetFreq/Play/Acquire) can be inspected or simulated directly from Python:
 ```bash
-python compiler/pulse_compiler.py psiscripts/ghost_filter.psi --json
+# Text table
+python compiler/qasm_compiler.py psiscripts/ghost_filter.psi --pulse-table
+
+# JSON + lightweight simulator (console backend)
+python compiler/qasm_compiler.py psiscripts/ghost_filter.psi --pulse-json build/ghost_filter.json --simulate-pulses
 ```
 
 The emitted QASM includes TODO comments where predicates are too complex to lower; extend `parse_conjunctive_controls` and the emitters to broaden coverage.

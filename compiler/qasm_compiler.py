@@ -1,22 +1,27 @@
 """
-PsiScript -> OpenQASM 2.0 sketch compiler.
+PsiScript -> OpenQASM 2.0 sketch compiler + pulse scheduler.
 
 This is intentionally minimal: it lowers the common PsiScript samples into
 qelib1 gates, emits comments when a predicate is too complex to lower, and
-keeps classical guards (`when:`) as OpenQASM `if` statements.
+keeps classical guards (`when:`) as OpenQASM `if` statements. Pulse-layer
+sections are converted into a timestamped schedule that can be simulated
+through a pluggable backend interface.
 
 PsiScript v1.2 adds an Analog/pulse layer. Those operations are parsed but not
 lowered here; they are emitted as comments to preserve intent in the output.
 
 Run (from repo root):
     python compiler/qasm_compiler.py psiscripts/teleport.psi --out build/teleport.qasm
+    python compiler/qasm_compiler.py psiscripts/ghost_filter.psi --pulse-table
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -25,6 +30,318 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from psi_lang import PsiOperation, PsiScriptParser, parse_conjunctive_controls
+
+
+PULSE_KINDS = {"rotate", "wait", "shiftphase", "setfreq", "play", "acquire"}
+
+
+@dataclass
+class PulseEvent:
+    kind: str
+    register: str
+    target: Optional[int]
+    start_ns: float
+    duration_ns: float
+    axis: Optional[str] = None
+    angle: Optional[float] = None
+    shape: Optional[str] = None
+    waveform: Optional[str] = None
+    channel: Optional[str] = None
+    frequency: Optional[str] = None
+    kernel: Optional[str] = None
+    when: Optional[str] = None
+    branch: Optional[str] = None
+    metadata: Dict[str, str] = field(default_factory=dict)
+    raw: str = ""
+
+
+@dataclass
+class PulseSchedule:
+    events: List[PulseEvent] = field(default_factory=list)
+
+    @property
+    def duration_ns(self) -> float:
+        if not self.events:
+            return 0.0
+        return max(evt.start_ns + evt.duration_ns for evt in self.events)
+
+    def to_json(self) -> str:
+        return json.dumps([asdict(evt) for evt in self.events], indent=2)
+
+    def to_table(self) -> str:
+        if not self.events:
+            return "(no pulse events)"
+        lines = []
+        header = f"{'start(ns)':>10} {'dur(ns)':>8} {'reg':>6} {'tgt':>4} {'kind':>10} details"
+        lines.append(header)
+        lines.append("-" * len(header))
+        for evt in sorted(self.events, key=lambda e: (e.start_ns, e.register, e.target or -1)):
+            tgt = "" if evt.target is None else str(evt.target)
+            details = []
+            if evt.axis:
+                details.append(f"axis={evt.axis}")
+            if evt.kind in {"rotate", "shiftphase"} and evt.angle is not None:
+                details.append(f"angle={evt.angle}")
+            if evt.shape:
+                details.append(f"shape={evt.shape}")
+            if evt.waveform:
+                details.append(f"waveform={evt.waveform}")
+            if evt.channel:
+                details.append(f"channel={evt.channel}")
+            if evt.frequency:
+                details.append(f"freq={evt.frequency}")
+            if evt.kernel:
+                details.append(f"kernel={evt.kernel}")
+            if evt.branch:
+                details.append(f"branch={evt.branch}")
+            lines.append(
+                f"{evt.start_ns:10.1f} {evt.duration_ns:8.1f} {evt.register:>6} {tgt:>4} {evt.kind:>10} "
+                + ", ".join(details)
+            )
+        lines.append(f"Total duration: {self.duration_ns:.1f} ns")
+        return "\n".join(lines)
+
+
+class PulseScheduler:
+    """Build a timestamped pulse schedule by walking parsed PsiScript statements."""
+
+    def __init__(
+        self,
+        parser: PsiScriptParser,
+        registers: Dict[str, int],
+        default_register: Optional[str] = None,
+        target_register: Optional[str] = None,
+    ):
+        self.parser = parser
+        self.registers = registers
+        self.register_filter = target_register
+        if target_register and target_register not in registers:
+            raise ValueError(f"Register '{target_register}' not declared.")
+        self.default_register = default_register or target_register or next(iter(registers.keys()))
+
+    def build(self) -> PulseSchedule:
+        statements = getattr(self.parser, "statements", [])
+        events, _ = self._compile_block(
+            statements=statements,
+            default_register=self.default_register,
+            scope="logic",
+            analog_context=None,
+            start_time=0.0,
+            branch_label=None,
+        )
+        events.sort(key=lambda e: (e.start_ns, e.register, e.target or -1))
+        return PulseSchedule(events)
+
+    # --- internal helpers ---
+
+    def _compile_block(
+        self,
+        *,
+        statements: List[object],
+        default_register: Optional[str],
+        scope: str,
+        analog_context: Optional[Tuple[Optional[str], Optional[int]]],
+        start_time: float,
+        branch_label: Optional[str],
+    ) -> Tuple[List[PulseEvent], float]:
+        time_cursor = start_time
+        events: List[PulseEvent] = []
+
+        for stmt in statements:
+            op, ctx_update = self.parser._parse_operation(
+                stmt.text,
+                scope=scope,
+                analog_context=analog_context,
+                default_register=default_register,
+            )
+            next_default = ctx_update.get("default_register", default_register)
+            next_scope = ctx_update.get("scope", scope)
+            next_analog = ctx_update.get("analog_context", analog_context)
+
+            if op and op.kind in PULSE_KINDS:
+                evt, delta = self._lower_pulse_op(op, time_cursor, branch_label)
+                if evt:
+                    events.append(evt)
+                time_cursor += delta
+                continue
+
+            if op and op.kind == "analog":
+                child_events, duration = self._compile_block(
+                    statements=stmt.children,
+                    default_register=next_default,
+                    scope=next_scope,
+                    analog_context=next_analog,
+                    start_time=time_cursor,
+                    branch_label=branch_label,
+                )
+                events.extend(child_events)
+                time_cursor += duration
+                continue
+
+            if op and op.kind == "align":
+                child_events, duration = self._compile_align(
+                    branches=stmt.children,
+                    default_register=next_default,
+                    scope=next_scope,
+                    analog_context=next_analog,
+                    start_time=time_cursor,
+                )
+                events.extend(child_events)
+                time_cursor += duration
+                continue
+
+            if stmt.children:
+                child_events, duration = self._compile_block(
+                    statements=stmt.children,
+                    default_register=next_default,
+                    scope=next_scope,
+                    analog_context=next_analog,
+                    start_time=time_cursor,
+                    branch_label=branch_label,
+                )
+                events.extend(child_events)
+                time_cursor += duration
+
+        return events, time_cursor - start_time
+
+    def _compile_align(
+        self,
+        *,
+        branches: List[object],
+        default_register: Optional[str],
+        scope: str,
+        analog_context: Optional[Tuple[Optional[str], Optional[int]]],
+        start_time: float,
+    ) -> Tuple[List[PulseEvent], float]:
+        events: List[PulseEvent] = []
+        durations: List[float] = []
+
+        for branch_stmt in branches:
+            op, ctx_update = self.parser._parse_operation(
+                branch_stmt.text,
+                scope=scope,
+                analog_context=analog_context,
+                default_register=default_register,
+            )
+            branch_label = op.metadata.get("label") if op and op.metadata else None
+            child_events, duration = self._compile_block(
+                statements=branch_stmt.children,
+                default_register=ctx_update.get("default_register", default_register),
+                scope=ctx_update.get("scope", scope),
+                analog_context=ctx_update.get("analog_context", analog_context),
+                start_time=start_time,
+                branch_label=branch_label,
+            )
+            events.extend(child_events)
+            durations.append(duration)
+
+        return events, max(durations) if durations else 0.0
+
+    def _lower_pulse_op(
+        self, op: PsiOperation, start: float, branch_label: Optional[str]
+    ) -> Tuple[Optional[PulseEvent], float]:
+        target = op.targets[0] if op.targets else None
+        duration = self._parse_duration(op.duration or op.metadata.get("duration"))
+        include_event = not self.register_filter or op.register == self.register_filter
+        if not include_event:
+            return None, duration
+
+        event = PulseEvent(
+            kind=op.kind,
+            register=op.register,
+            target=target,
+            start_ns=start,
+            duration_ns=duration,
+            axis=op.axis,
+            angle=op.angle if hasattr(op, "angle") else None,
+            shape=op.shape,
+            waveform=op.waveform,
+            channel=op.channel,
+            frequency=op.frequency,
+            kernel=op.kernel,
+            when=op.when,
+            branch=branch_label,
+            metadata=op.metadata,
+            raw=op.raw,
+        )
+        return event, duration
+
+    def _parse_duration(self, text: Optional[str]) -> float:
+        if not text:
+            return 0.0
+        value, unit = self._split_number_unit(text)
+        factor = {
+            "s": 1e9,
+            "ms": 1e6,
+            "us": 1e3,
+            "ns": 1.0,
+            "ps": 1e-3,
+            "fs": 1e-6,
+            "dt": 1.0,  # treat dt as an abstract tick
+        }.get(unit, 1.0)
+        return value * factor
+
+    def _split_number_unit(self, text: str) -> Tuple[float, str]:
+        cleaned = text.strip()
+        match = re.match(r"([-+]?\d*\.?\d+(?:e[-+]?\d+)?)\s*([a-zA-Z]+)?", cleaned)
+        if not match:
+            return 0.0, "ns"
+        value = float(match.group(1))
+        unit = (match.group(2) or "ns").lower()
+        return value, unit
+
+
+# Backwards-compat alias for previous standalone module
+PulseLayerCompiler = PulseScheduler
+
+
+class PulseBackend:
+    """Lightweight abstraction so different simulators/backends can be plugged in."""
+
+    def on_start(self, schedule: PulseSchedule):
+        return None
+
+    def on_event(self, event: PulseEvent):
+        return None
+
+    def on_finish(self, schedule: PulseSchedule):
+        return None
+
+
+class LoggingPulseBackend(PulseBackend):
+    """Collects events for inspection or downstream integration."""
+
+    def __init__(self):
+        self.events: List[PulseEvent] = []
+        self.started = False
+        self.finished = False
+
+    def on_start(self, schedule: PulseSchedule):
+        self.started = True
+        self.finished = False
+
+    def on_event(self, event: PulseEvent):
+        self.events.append(event)
+
+    def on_finish(self, schedule: PulseSchedule):
+        self.finished = True
+        return {
+            "event_count": len(self.events),
+            "duration_ns": schedule.duration_ns,
+        }
+
+
+class PulseSimulator:
+    """Replay a pulse schedule into a backend (could be a hardware API or physics simulator)."""
+
+    def __init__(self, backend: PulseBackend):
+        self.backend = backend
+
+    def run(self, schedule: PulseSchedule):
+        self.backend.on_start(schedule)
+        for event in sorted(schedule.events, key=lambda e: (e.start_ns, e.register, e.target or -1)):
+            self.backend.on_event(event)
+        return self.backend.on_finish(schedule)
 
 
 class QasmBuilder:
@@ -302,10 +619,25 @@ class OpenQasmCompiler:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Compile a PsiScript file into OpenQASM 2.0 (best-effort).")
+    parser = argparse.ArgumentParser(description="Compile a PsiScript file into OpenQASM 2.0 and a pulse schedule.")
     parser.add_argument("script", help="Path to .psi program to compile")
     parser.add_argument("--register", help="Register name to compile (defaults to first declared)")
     parser.add_argument("--out", type=Path, help="Destination .qasm file (stdout if omitted)")
+    parser.add_argument(
+        "--pulse-json",
+        type=Path,
+        help="Write pulse schedule to a JSON file (use '-' to print to stdout).",
+    )
+    parser.add_argument(
+        "--pulse-table",
+        action="store_true",
+        help="Print a text table of the pulse schedule to stdout.",
+    )
+    parser.add_argument(
+        "--simulate-pulses",
+        action="store_true",
+        help="Replay the pulse schedule into a logging backend (no physics yet).",
+    )
     args = parser.parse_args()
 
     ps_parser = PsiScriptParser(args.script)
@@ -318,12 +650,40 @@ def main():
     compiler = OpenQasmCompiler(target_register, registers[target_register])
     qasm = compiler.compile(filtered_ops)
 
+    schedule: Optional[PulseSchedule] = None
+    wants_pulses = args.pulse_json or args.pulse_table or args.simulate_pulses
+    if wants_pulses:
+        scheduler = PulseScheduler(
+            ps_parser,
+            registers,
+            default_register=target_register,
+            target_register=target_register,
+        )
+        schedule = scheduler.build()
+
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(qasm, encoding="utf-8")
         print(f"Wrote OpenQASM to {args.out}")
     else:
         print(qasm)
+
+    if args.pulse_json:
+        pulse_text = schedule.to_json() if schedule else "[]"
+        if str(args.pulse_json) == "-":
+            print(pulse_text)
+        else:
+            args.pulse_json.parent.mkdir(parents=True, exist_ok=True)
+            args.pulse_json.write_text(pulse_text, encoding="utf-8")
+            print(f"Wrote pulse schedule to {args.pulse_json}")
+
+    if args.pulse_table:
+        print(schedule.to_table() if schedule else "(no pulse events)")
+
+    if args.simulate_pulses:
+        backend = LoggingPulseBackend()
+        summary = PulseSimulator(backend).run(schedule or PulseSchedule())
+        print(f"Pulse simulation complete: {summary}")
 
 
 if __name__ == "__main__":

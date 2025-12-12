@@ -1,130 +1,125 @@
-# PsiScript v1.1 - Technical Reference Manual
+# PsiScript v1.2 - Hybrid Reference Manual
 
-## 1. Philosophy: Interference Sculpting
-
-PsiScript is a high-level quantum description language built around **Interference Sculpting**. Instead of thinking about qubits as spinning arrows, you treat the register as a block of raw possibility and sculpt it by tagging, interfering, and finally collapsing.
-
-- **Medium:** A Hilbert space with $2^N$ simultaneous basis states.
-- **Tool:** Complex phase (imaginary numbers) that tags regions of that space.
-- **Mechanism:** Constructive and destructive interference that carves away the wrong answers and amplifies the right ones.
-
-The syntax remains lightweight and familiar (JS/Python flavored), but the semantics are framed around carving probability mass rather than rotating geometric vectors.
+PsiScript now supports the **Zoom Philosophy**: you can script at the logic layer (interference sculpting) or drop into the pulse layer (geometric drive trajectories). The language keeps the light JS/Python-flavored syntax, but you can now describe both *what* the algorithm should do and *how* the hardware should move.
 
 ---
 
-## 2. Syntax at a Glance
+## 1. Zoom: Logic Layer ↔ Pulse Layer
+
+- **Logic Layer (The Sculptor):** Expand the $2^N$ space, tag regions with complex phase, trigger interference, and pivot/route indices. This is the v1.1 “Interference Sculpting” model.
+- **Pulse Layer (The Composer):** Enter `Analog { ... }` to specify *physical* rotations, waits, and frame updates with durations and waveforms.
+- **Visual Flow:** Blocks map to circuit lines. `Align` expresses “do these branches in parallel until the longest finishes.”
+
+---
+
+## 2. Syntax at a Glance (Hybrid)
 
 ```psi
-// Declaration (multiple registers allowed)
-let work = Register(3), scratch = Register(1)
-
-// Quantum-time operations (sculpt the wavefunction)
-work.Superpose(targets: ALL)                       // Expansion
-work.Phase(angle: PI, where: work[0] == work[1])   // Tag with a phase chisel
-work.Flip(target: 2, where: work[0] && !work[1])   // Pivot/route data
-
-// Measurement boundary (collapse)
-let c0 = Measure(work[0])
-let c1 = Measure(work[1])
-
-// Classical-time control (per-branch, no entanglement)
-if (c0) { work.Flip(target: 2, when: true) }
-if (c1) { work.Phase(angle: PI, where: work[2], when: true) }
-```
-
-**Key rules**
-- **Declaration is inferred:** `let name = Register(3)` introduces a computational space of size $2^3$; multiple registers are fine.
-- **Indexing:** `reg[i]` always refers to the *i*th qubit inside that register.
-- **Guards:** `where:` is a **quantum predicate** evaluated across the entire superposition; it creates entanglement and phase tags. `when:` is a **classical guard** evaluated after measurements.
-- **Measurement is a wall:** After `Measure`, you are in classical-time until you call a primitive again.
-- **Surface verbs stay unitary:** Primitives compose into a single sculpting step; measurement is kept as a top-level verb to signal irreversibility.
-
----
-
-## 3. Primitive Semantics (v1.1)
-
-### 3.1 `Superpose(targets)` — The Expansion
-Creates the raw block of possibilities.
-
-- **Syntax:** `Register.Superpose(targets: ALL | [i0, i1, ...] | i)`
-- **Meaning:** Instantiate every basis state with equal potential. Whether 3 qubits or 30, this step inflates the register to all $2^N$ indices.
-- **Circuit intuition:** Maps to Hadamards on the targets (depth O(1)).
-- **Scaling note:** This is where exponential parallelism appears; more qubits = more parallel realities to sculpt.
-
----
-
-### 3.2 `Phase(angle, where)` — The Chisel
-Tags regions of the hyperspace with complex phase.
-
-- **Syntax:** `Register.Phase(angle: PI, where: reg[0] == reg[1])`
-- **Meaning:** Apply a phase to every state satisfying the quantum predicate. `angle: PI` marks states as “invalid” (negative amplitude); fractional angles (e.g., `PI/2`, `PI/4`) encode frequency relationships as in QFT.
-- **Imaginary plane:** Phase moves amplitude into the imaginary axis; later interference converts these tags into probability shifts.
-- **Circuit intuition:** Implements an oracle (compute–phase–uncompute) using controlled-phase families.
-
----
-
-### 3.3 `Reflect(axis)` — The Interference Trigger
-Turns phase tags into probability changes.
-
-- **Syntax:** `Register.Reflect(axis: Axis.MEAN)`
-- **Meaning:** Invert around the mean so tagged states destructively interfere and untagged states amplify. This is the moment the “chisel marks” carve away the wrong answers.
-- **Circuit intuition:** Grover-style diffusion (H → X → multi-controlled Z → X → H).
-
----
-
-### 3.4 `Flip(target, where?, when?)` — The Pivot
-Conditionally reroutes indices to create entanglement or reorder data.
-
-- **Syntax:** `Register.Flip(target: 1, where: reg[0] == 1)` or `Register.Flip(target: 1, when: classicalBit)`
-- **Meaning:** Conditional bit flip that reorients the computational subspace. With `where`, it entangles/pivots states; with `when`, it applies a classical correction.
-- **Circuit intuition:** Compiles to X/CX/Toffoli with helper X gates for `== 0` controls.
-
----
-
-## 4. Registers, Scope, and Scaling
-
-- Multiple registers are allowed; operations act on one register at a time. Cross-register conditions are explicit (e.g., `data.Flip(target: 2, where: anc[0])`).
-- Classical `Bit` values originate from `Measure(register[index])` or host literals.
-- Functions/macros can accept registers; the language stays declarative and compact.
-- **Scaling intuition:** `where` predicates evaluate over the entire $2^N$ space at once. The goal is to carve a single correct state out of exponentially many candidates by iterating `Phase` + `Reflect`.
-
----
-
-## 5. Execution Order: Quantum-Time vs Classical-Time
-
-- **Quantum-time:** All `Superpose`, `Phase`, `Reflect`, and `Flip` calls before a measurement compose into one sculpting unitary. Multiple `where` predicates can overlap and interfere.
-- **Measurement boundary:** `Measure` collapses targeted qubits (or an entire register) and produces classical bits. Subsequent `when:` guards use those bits; further `where:` clauses still operate on any remaining quantum data.
-- **Classical-time:** Standard `if`, `for`, etc., control flow. `when:` keeps classical corrections explicit without suggesting extra entanglement.
-
----
-
-## 6. Practical Example: Equality Tagging
-
-PsiScript view:
-
-```psi
+// 1) Declare and sculpt logically
 let q = Register(2)
-q.Phase(angle: PI, where: q[0] == q[1]) // mark 00 and 11 with a negative tag
+q.Superpose(targets: ALL)
+q.Phase(angle: PI, where: q[0] == q[1])
+
+// 2) Zoom into pulses for a custom correction on q[0]
+Analog(target: q[0]) {
+    Rotate(axis: X, angle: PI/2, duration: 20ns, shape: Gaussian(sigma: 4ns));
+    Wait(duration: 10ns);
+    Rotate(axis: -X, angle: PI/2, duration: 20ns, shape: Drag(beta: 0.5));
+    ShiftPhase(angle: PI/8); // frame tweak
+}
+
+// 3) Back to logic-time
+q.Reflect(axis: Axis.MEAN)
+let result = Measure(q[0])
 ```
 
-Transpiled circuit (OpenQASM sketch):
+`where:` remains a **quantum predicate** on superpositions; `when:` is a **classical guard** after measurement. `Analog` suspends `where:`—you are driving the wire directly with explicit time.
 
-```assembly
-reg q[2]    // System
-reg a[1]    // Ancilla
-x a[0]; h a[0];           // Prepare |-> for phase kickback
-cx q[0], a[0];            // Compute XOR
-cx q[1], a[0];
-x a[0];                   // Target equality
-z a[0];                   // Phase tag
-x a[0]; cx q[1], a[0];    // Uncompute
-cx q[0], a[0];
+---
+
+## 3. Logic Layer (Interference Sculpting)
+
+### Registers & Guards
+- `let reg = Register(N)` creates a $2^N$-dimensional space. Multiple registers are fine.
+- `where:` entangles/tag states across the full superposition. `when:` gates classical corrections after measurement.
+- Measurement is the irreversible wall; everything before it composes into one unitary sculpting step.
+
+### Primitives
+- **`Superpose(targets)` — Expansion**  
+  Inflate the search space (`ALL` or indexed list). Circuit intuition: Hadamards.
+
+- **`Phase(angle, where)` — Phase Etching**  
+  Tag regions in the imaginary plane. `PI` marks deletes; fractional angles encode frequency (QFT-style). Circuit intuition: controlled-phase oracles.
+
+- **`Reflect(axis)` — Interference Trigger**  
+  Invert around the mean (Grover diffusion) to convert tags into probability shifts.
+
+- **`Flip(target, where?, when?)` — Pivot/Route**  
+  Conditional X. With `where` it entangles/reorders; with `when` it applies classical fixes (teleportation corrections, etc.).
+
+---
+
+## 4. Pulse Layer (Analog Scope)
+
+Rules inside `Analog { ... }`:
+- No `where:`—you are addressing a wire, not a superposition predicate.
+- Time is explicit (`ns`, `dt`). Visualize the Bloch vector moving over time.
+- Manage frames directly: virtual Z (`ShiftPhase`), frequency hops (`SetFreq`).
+
+Pulse verbs:
+- **`Analog(target: reg[i]) { ... }`** — Enter pulse-time for that qubit/line.
+- **`Rotate(axis, angle, duration, shape?)`** — Geometric motion on the Bloch sphere with a drive envelope (e.g., `Gaussian`, `Drag`, `Slepian`).
+- **`Wait(duration)`** — Idle with explicit time.
+- **`ShiftPhase(angle)`** — Virtual Z/frame shift.
+- **`SetFreq(hz)`** — Drive frame update (e.g., accessing sidebands/levels).
+- **`Play(waveform, channel)`** — Raw arbitrary waveform emit.
+- **`Acquire(duration, kernel)`** — Readout capture with a processing kernel.
+
+### Parallel Flow
+Use `Align { ... }` with `branch <label> { ... }` to express simultaneous actions. Each branch runs until the longest completes; useful for echo sequences alongside logical idling.
+
+```psi
+Align {
+    branch q[0] { Rotate(axis: Z, angle: PI, duration: 100ns); }
+    branch q[1] {
+        Rotate(axis: X, angle: PI, duration: 40ns);
+        Wait(duration: 20ns);
+        Rotate(axis: -X, angle: PI, duration: 40ns);
+    }
+}
 ```
 
 ---
 
-## 7. Hardware Considerations
+## 5. Bridging: Custom Gates from Pulses
 
-- **Topology:** Non-adjacent `where` predicates may insert SWAP ladders; depth costs should be surfaced.
-- **Ancilla:** Phase oracles allocate helper qubits for kickback and clean them up with uncomputation.
-- **Precision:** Algorithm accuracy depends on how precisely `Phase` can isolate the desired state within the large search space, not just on qubit count.
+Define a pulse implementation for a logic verb, then call it with `where:` like any other gate:
+
+```psi
+def pulse SoftFlip(target: Qubit) {
+    Analog(target: target) {
+        Rotate(axis: X, angle: PI, duration: 24ns, shape: Slepian(window: 0.3));
+    }
+}
+
+let reg = Register(3)
+reg.apply(SoftFlip, where: reg[0] && !reg[1]) // compiler substitutes the pulse schedule
+```
+
+This “trapdoor” lets you optimize hardware behavior without losing the declarative logic flow.
+
+---
+
+## 6. Execution Order & Time
+
+- **Quantum-time (logic):** `Superpose`, `Phase`, `Reflect`, `Flip` compose as before. Multiple `where` clauses overlap and interfere.
+- **Pulse-time (analog):** Inside `Analog`, steps follow real durations; `Align` synchronizes branches by wall-clock time.
+- **Measurement boundary:** After `Measure`, only `when:` applies. You can re-enter `Analog` on surviving qubits for calibrated readout or resets.
+
+---
+
+## 7. Hardware & Visualization Notes
+
+- Topology and ancilla costs still matter for logic predicates; pulse blocks let you side-step gate explosion with tailored trajectories.
+- Frame tracking is explicit (`ShiftPhase`, `SetFreq`); envelope choices (`shape:`) capture leakage/DRAG concerns.
+- The viewer in `viewer-references/` focuses on interference visuals; it records pulse steps for context but does not simulate microwave physics.

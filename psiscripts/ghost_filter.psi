@@ -1,0 +1,20 @@
+// Pulse-layer echo to keep a single qubit coherent while it idles.
+let memory = Register(1);
+
+// Logic layer: prepare a superposition to protect.
+memory.Superpose(targets: ALL);
+
+// Pulse layer: dynamical decoupling echo with explicit timing and shapes.
+Align {
+    branch memory {
+        Analog(target: memory[0]) {
+            Rotate(axis: Y, angle: PI, duration: 20ns, shape: Gaussian(sigma: 4ns));
+            Wait(duration: 50ns);
+            Rotate(axis: -Y, angle: PI, duration: 20ns, shape: Drag(beta: 0.5));
+            ShiftPhase(angle: PI/8);
+        }
+    }
+}
+
+// Back to logic-time for measurement.
+let result = Measure(memory[0]);

@@ -1,10 +1,14 @@
 """
-PsiScript interference viewer (v1.1 sculpting lens).
+PsiScript interference viewer (v1.2 sculpting + pulse lens).
 
 This script loads a `.psi` program, simulates its quantum operations,
 and renders a 3D surface where height = probability density and color = phase.
 Use the slider or buttons to step through the script and see how phase tags,
-reflections, and measurements reshape the state vector.
+reflections, measurements, and pulse-level annotations reshape the state vector.
+
+Note: Analog/pulse-layer operations (`Analog`, `Rotate`, `Wait`, etc.) are
+recorded for timeline context but simulated as no-ops here; the viewer still
+focuses on logic-layer interference.
 
 Run locally (Python 3, numpy, matplotlib):
     python viewer-references/psi_interference_viewer.py psiscripts/teleport.psi --seed 1
@@ -55,7 +59,11 @@ class QuantumSimulator:
     def run(self) -> List[StepSnapshot]:
         self._record("Init", "All amplitude in |0...0>.")
         for idx, op in enumerate(self.operations, start=1):
-            measurement = getattr(self, f"_apply_{op.kind}")(op)
+            handler = getattr(self, f"_apply_{op.kind}", None)
+            if handler:
+                measurement = handler(op)
+            else:
+                measurement = self._apply_noop(op)
             self._record(
                 f"{idx}. {op.kind}",
                 op.raw or op.kind,
@@ -109,6 +117,33 @@ class QuantumSimulator:
         if op.axis and "MEAN" in op.axis.upper():
             avg = np.mean(self.state)
             self.state = 2 * avg - self.state
+
+    def _apply_rotate(self, op: PsiOperation):
+        return self._apply_noop(op)
+
+    def _apply_wait(self, op: PsiOperation):
+        return self._apply_noop(op)
+
+    def _apply_shiftphase(self, op: PsiOperation):
+        return self._apply_noop(op)
+
+    def _apply_setfreq(self, op: PsiOperation):
+        return self._apply_noop(op)
+
+    def _apply_play(self, op: PsiOperation):
+        return self._apply_noop(op)
+
+    def _apply_acquire(self, op: PsiOperation):
+        return self._apply_noop(op)
+
+    def _apply_analog(self, op: PsiOperation):
+        return self._apply_noop(op)
+
+    def _apply_align(self, op: PsiOperation):
+        return self._apply_noop(op)
+
+    def _apply_branch(self, op: PsiOperation):
+        return self._apply_noop(op)
 
     def _apply_measure(self, op: PsiOperation):
         if op.measure_all:
@@ -177,6 +212,9 @@ class QuantumSimulator:
 
     def _hadamard(self) -> np.ndarray:
         return np.array([[1, 1], [1, -1]], dtype=np.complex128) / math.sqrt(2)
+
+    def _apply_noop(self, op: PsiOperation):
+        return None
 
 
 class InterferenceViewer:

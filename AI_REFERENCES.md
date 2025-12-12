@@ -1,24 +1,28 @@
-# AI References — PsiScript v1.1
+# AI References — PsiScript v1.2
 
-Quick anchors to the v1.1 “Interference Sculpting” model so follow-up prompts do not need to re-derive the mental model.
+Quick anchors to the v1.2 **Hybrid (Logic ↔ Pulse)** model so follow-up prompts do not need to re-derive the mental model.
 
-- **Core sources:** `PsiScript-Definition.md` (v1.1 semantics), `definitions/v1.1-upgrade.md` (narrative framing), `psiscripts/` (examples), `viewer-references/` (simulation/visual aids), `compiler/qasm_compiler.py` (lowering sketch).
-- **Mental model:** Expand the $2^N$ space (`Superpose`), tag regions with phase in the imaginary plane (`Phase`), convert tags into probability shifts (`Reflect`), and pivot indices or apply classical corrections (`Flip`). `where:` is quantum-time tagging; `when:` is classical-time gating.
-- **Primitive cheat sheet:**  
+- **Core sources:** `PsiScript-Definition.md` (v1.2 hybrid manual), `definitions/v1.2-upgrade.md` (Zoom philosophy), `psiscripts/` (logic + analog examples), `viewer-references/` (interference visuals), `compiler/qasm_compiler.py` + `psi_lang.py` (parsing/lowering stubs).
+- **Mental model:** Start at the logic layer to sculpt the $2^N$ space (`Superpose` → `Phase` → `Reflect` → `Flip`). When you need hardware detail, drop into `Analog { ... }` to specify **geometric pulse trajectories** with durations and waveforms. `where:` is quantum-time tagging; `when:` is classical-time gating; `Analog` suspends `where` and switches to explicit time.
+- **Primitive cheat sheet (logic):**  
   - `Superpose(targets)` → expansion via Hadamards.  
   - `Phase(angle, where)` → chisel/logic tag; `PI` = delete tag, fractions = frequency tagging.  
   - `Reflect(axis: MEAN)` → interference trigger to carve away tagged regions.  
   - `Flip(target, where|when)` → pivot/route; entangling when guarded by `where`, classical when guarded by `when`.
+- **Primitive cheat sheet (pulse):**  
+  - `Analog(target)` → enter pulse-time for that wire.  
+  - `Rotate(axis, angle, duration, shape?)`, `Wait(duration)`, `ShiftPhase(angle)`, `SetFreq(hz)` → geometric moves + frame tracking.  
+  - `Play(waveform, channel)`, `Acquire(duration, kernel)` → raw emit/readout.  
+  - `Align { branch ... }` → parallel branches that end together.
 - **Example pointers:**  
-  - Grover sculpting loop: `psiscripts/grover_sat.psi` (tag → reflect → repeat).  
-  - Frequency tagging: `psiscripts/qft_3.psi` (coarse/fine phase etches, then pivot order).  
-  - Teleportation corrections: `psiscripts/teleport.psi` (classical `when:` guards).  
-  - Phase oracle decoding: `psiscripts/bernstein_vazirani.psi`.
+  - Logic sculpting: `psiscripts/grover_sat.psi` (tag → reflect → repeat), `psiscripts/qft_3.psi` (frequency etches), `psiscripts/teleport.psi` (classical `when:` guards).  
+  - Pulse flow: `psiscripts/ghost_filter.psi` (echo-style analog block inside an Align).  
+  - Frequency tagging: `psiscripts/bernstein_vazirani.psi`; GHZ/Bell for entanglement scaffolding.
 - **Python helpers:**  
-  - Viewer: `viewer-references/psi_interference_viewer.py` simulates steps and visualizes phase/amplitude; `--register` and `--seed` options help with demos.  
+  - Viewer: `viewer-references/psi_interference_viewer.py` visualizes logic-layer interference; pulse ops are recorded as timeline notes (no microwave simulation).  
   - Wave intuition: `viewer-references/wave_viewer.py` sketches interference patterns for teaching.  
-  - Parsing utilities: `psi_lang.py` defines `PsiScriptParser`, predicate helpers, and angle eval.
+  - Parser/lowering: `psi_lang.py` understands `Analog/Rotate/Align/...`; `compiler/qasm_compiler.py` emits QASM for logic ops and comments for pulse ops.
 - **Known gaps / TODOs:**  
-  - Phase/flip lowering only supports simple conjunctive predicates (see `parse_conjunctive_controls`); extend for broader `where` expressions.  
-  - Add automated checks/examples to guard v1.1 semantics (unit tests for parser + viewer?) once CI strategy exists.  
-  - Consider adding v1.1-focused walkthroughs (interference sculpting diagrams) under `viewer-references/` or README visuals.
+  - Pulse-level physics is not simulated or lowered; QASM output just comments for analog sections.  
+  - `where` lowering still limited to simple conjunctions (extend `parse_conjunctive_controls`).  
+  - Add tests around the new parser branches/analog handling once CI exists; consider waveform libraries or hardware back-ends for pulse export.

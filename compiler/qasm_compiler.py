@@ -5,6 +5,9 @@ This is intentionally minimal: it lowers the common PsiScript samples into
 qelib1 gates, emits comments when a predicate is too complex to lower, and
 keeps classical guards (`when:`) as OpenQASM `if` statements.
 
+PsiScript v1.2 adds an Analog/pulse layer. Those operations are parsed but not
+lowered here; they are emitted as comments to preserve intent in the output.
+
 Run (from repo root):
     python compiler/qasm_compiler.py psiscripts/teleport.psi --out build/teleport.qasm
 """
@@ -186,6 +189,34 @@ class OpenQasmCompiler:
         if dest not in self.builder.cregs:
             self.builder.ensure_creg(dest, 1)
         self.builder.emit(f"measure {self.register}[{op.targets[0]}] -> {dest}[0];")
+
+    def _emit_analog(self, op: PsiOperation):
+        self.builder.emit(f"// Analog scope for {op.register} {op.targets}: {op.raw}")
+
+    def _emit_align(self, op: PsiOperation):
+        self.builder.emit(f"// Align block start: {op.raw}")
+
+    def _emit_branch(self, op: PsiOperation):
+        label = op.metadata.get("label", "") if hasattr(op, "metadata") else ""
+        self.builder.emit(f"// Align branch {label}")
+
+    def _emit_rotate(self, op: PsiOperation):
+        self.builder.emit(f"// Rotate (pulse) not lowered: {op.raw}")
+
+    def _emit_wait(self, op: PsiOperation):
+        self.builder.emit(f"// Wait (pulse) not lowered: {op.raw}")
+
+    def _emit_shiftphase(self, op: PsiOperation):
+        self.builder.emit(f"// ShiftPhase (virtual Z) not lowered: {op.raw}")
+
+    def _emit_setfreq(self, op: PsiOperation):
+        self.builder.emit(f"// SetFreq (frame) not lowered: {op.raw}")
+
+    def _emit_play(self, op: PsiOperation):
+        self.builder.emit(f"// Play (waveform) not lowered: {op.raw}")
+
+    def _emit_acquire(self, op: PsiOperation):
+        self.builder.emit(f"// Acquire (readout) not lowered: {op.raw}")
 
     # --- helpers ---
 

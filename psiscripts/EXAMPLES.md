@@ -2,11 +2,9 @@
 
 Welcome to the **PsiScript** examples repository.
 
-PsiScript v1.1 frames quantum code as **Interference Sculpting**. You expand a massive block of possibilities, tag regions with complex phase, trigger interference to carve away wrong answers, and pivot data into place for reading. The four primitives stay the same but their meaning is:
-1. **`Superpose`** — Expansion (create the block of marble).
-2. **`Phase`** — The chisel (tag logic into the imaginary plane).
-3. **`Reflect`** — Interference trigger (convert tags into probability shifts).
-4. **`Flip`** — Pivot/route (conditional index rerouting or classical correction).
+PsiScript v1.2 keeps the **Interference Sculpting** logic layer and adds a **pulse layer**. You still expand a massive block of possibilities, tag regions with complex phase, trigger interference, and pivot data—but you can now drop into `Analog { ... }` to describe the physical drive trajectories (rotations, waits, frame shifts) that make those logical moves happen.
+1. **Logic primitives:** `Superpose`, `Phase`, `Reflect`, `Flip`.
+2. **Pulse primitives:** `Analog`, `Rotate`, `Wait`, `ShiftPhase`, `SetFreq`, `Play`, `Acquire`, with `Align` for parallel branches.
 
 ---
 
@@ -33,7 +31,16 @@ PsiScript v1.1 frames quantum code as **Interference Sculpting**. You expand a m
 
 ---
 
-### 3. `grover_sat.psi` (3-SAT Solver / Database Search)
+### 3. `ghost_filter.psi` (Pulse Echo / Dynamical Decoupling)
+**Goal:** Keep a single qubit “alive” while it idles by applying an echo sequence at the pulse layer.
+
+* **Step 1: Seed the register.** `let memory = Register(1)` then `memory.Superpose(targets: ALL)` preps the block.
+* **Step 2: Pulse layer echo.** Inside `Analog(target: memory[0])` a `Rotate`–`Wait`–`Rotate` sequence with explicit durations and shapes cancels accumulated phase noise. Wrapped in `Align` to emphasize the time-aligned flow.
+* **Step 3: Measure.** Collapse to see the survived amplitude after the pulse treatment.
+
+---
+
+### 4. `grover_sat.psi` (3-SAT Solver / Database Search)
 **Goal:** Find the specific input variables that satisfy a complex boolean formula without checking them one by one.
 
 * **Step 1: Expand the search space.** `logic_space.Superpose(targets: ALL)` instantiates all 8 candidates.
@@ -43,7 +50,7 @@ PsiScript v1.1 frames quantum code as **Interference Sculpting**. You expand a m
 
 ---
 
-### 4. `qft_3.psi` (Quantum Fourier Transform)
+### 5. `qft_3.psi` (Quantum Fourier Transform)
 **Goal:** Transform data from amplitude encoding to frequency encoding. This is the engine behind Shor's Algorithm (breaking encryption).
 
 * **Logic:** QFT encodes frequency into **phase tags** that fall off geometrically. The tags, not rotations, are the payload.
@@ -51,16 +58,6 @@ PsiScript v1.1 frames quantum code as **Interference Sculpting**. You expand a m
 * **Step 2 & 3: Middle/LSB.** Repeat tagging for Q1 and Q2 with decreasing angles.
 * **Step 4: Pivot order.** Swap ends with `Flip` so the frequency bits emerge in the standard order.
 * *Note:* This shows `Phase` as frequency etching, not deletion.
-
----
-
-### 5. `adder.psi` (Ripple Carry Adder)
-**Goal:** Perform classical arithmetic (A + B) using quantum reversible logic.
-*Inputs:* Q0 (A), Q1 (B). *Outputs:* Q1 (Sum), Q2 (Carry).
-
-* **Step 1: Carry pivot.** `reg.Flip(target: 2, where: reg[0] == 1 && reg[1] == 1)` routes the carry bit using a conditional pivot (Toffoli).
-* **Step 2: Sum pivot.** `reg.Flip(target: 1, where: reg[0] == 1)` implements XOR as a controlled pivot.
-* *Insight:* Pure `Flip` flows recover classical reversible logic; no sculpting/phase tagging required.
 
 ---
 
@@ -85,12 +82,18 @@ PsiScript v1.1 frames quantum code as **Interference Sculpting**. You expand a m
 
 ## 🛠 PsiScript Primitive Reference
 
-| Primitive | Syntax | Physics (Transpiler Output) | Description |
+| Primitive | Syntax | Physics / Intent | Description |
 | :--- | :--- | :--- | :--- |
 | **Superpose** | `.Superpose(targets: ALL | [i...])` | **Hadamard (H)** | Expansion: create the block of possibilities. |
 | **Phase** | `.Phase(angle: θ, where: predicate)` | **Z / Controlled Phase / Oracle** | Chisel: tag regions in the imaginary plane (delete tags or frequency tags). |
 | **Reflect** | `.Reflect(axis: Axis.MEAN)` | **Diffusion Operator** | Interference trigger: turn tags into probability changes. |
-| **Flip** | `.Flip(target: i, where: predicate | when: classical)` | **X / CNOT / Toffoli** | Pivot: reroute indices / apply classical fixes without new tags. |
+| **Flip** | `.Flip(target: i, where: predicate \| when: classical)` | **X / CNOT / Toffoli** | Pivot: reroute indices / apply classical fixes without new tags. |
+| **Analog** | `Analog(target: reg[i]) { ... }` | **Enter pulse-time** | Drive a specific wire with explicit durations; suspends `where:`. |
+| **Rotate** | `Rotate(axis: X, angle: PI/2, duration: 20ns, shape: Gaussian(...))` | **Bloch trajectory** | Physical rotation with a shaped envelope. |
+| **Wait** | `Wait(duration: 10ns)` | **Idle / free evolution** | Explicit buffer time. |
+| **ShiftPhase / SetFreq** | `ShiftPhase(angle: PI/8)`, `SetFreq(hz: 5.1e9)` | **Frame ops** | Virtual Z or drive-frame hop. |
+| **Play / Acquire** | `Play(waveform, channel)`, `Acquire(duration: 300ns, kernel: boxcar)` | **Raw emit/readout** | Arbitrary waveform playback and readout capture. |
+| **Align / branch** | `Align { branch q[0] { ... } }` | **Parallel timing** | Run branches in parallel; finish when the longest branch ends. |
 
 ---
-*PsiScript v1.1 - Interference Sculpting Framework*
+*PsiScript v1.2 - Hybrid Logic/Pulse Framework*

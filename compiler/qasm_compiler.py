@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import sys
 from dataclasses import asdict, dataclass, field
@@ -344,6 +345,64 @@ class PulseSimulator:
         return self.backend.on_finish(schedule)
 
 
+class BlochSimulatorBackend(PulseBackend):
+    """
+    Extremely lightweight Bloch-sphere simulator (per-qubit, independent).
+    Models Rotate and ShiftPhase as axis-angle rotations of a single Bloch vector.
+    """
+
+    def __init__(self):
+        self.states: Dict[Tuple[str, Optional[int]], Tuple[float, float, float]] = {}
+
+    def on_start(self, schedule: PulseSchedule):
+        # Initialize Bloch vectors for any addressed qubit to |0> (0,0,1)
+        targets = {(evt.register, evt.target) for evt in schedule.events if evt.target is not None}
+        for key in targets:
+            self.states[key] = (0.0, 0.0, 1.0)
+
+    def on_event(self, event: PulseEvent):
+        key = (event.register, event.target)
+        if key not in self.states:
+            self.states[key] = (0.0, 0.0, 1.0)
+
+        # Only rotate operations move the Bloch vector; ShiftPhase is a Z rotation.
+        if event.kind == "rotate" and event.axis and event.angle is not None:
+            self.states[key] = self._rotate(self.states[key], event.axis, event.angle)
+        elif event.kind == "shiftphase" and event.angle is not None:
+            self.states[key] = self._rotate(self.states[key], "Z", event.angle)
+
+    def on_finish(self, schedule: PulseSchedule):
+        # Return a summary map for quick inspection.
+        summary = {}
+        for (reg, tgt), vec in self.states.items():
+            label = f"{reg}[{tgt}]"
+            summary[label] = {"x": vec[0], "y": vec[1], "z": vec[2]}
+        return summary
+
+    def _rotate(self, vec: Tuple[float, float, float], axis: str, angle: float) -> Tuple[float, float, float]:
+        ax = axis.upper()
+        sign = -1.0 if ax.startswith("-") else 1.0
+        ax = ax.lstrip("-")
+        theta = angle * sign
+        x, y, z = vec
+        c = math.cos(theta)
+        s = math.sin(theta)
+
+        if ax == "X":
+            y_new = y * c - z * s
+            z_new = y * s + z * c
+            return (x, y_new, z_new)
+        if ax == "Y":
+            x_new = x * c + z * s
+            z_new = -x * s + z * c
+            return (x_new, y, z_new)
+        if ax == "Z":
+            x_new = x * c - y * s
+            y_new = x * s + y * c
+            return (x_new, y_new, z)
+        return vec
+
+
 class QasmBuilder:
     def __init__(self, register: str, num_qubits: int):
         self.reg = register
@@ -636,7 +695,12 @@ def main():
     parser.add_argument(
         "--simulate-pulses",
         action="store_true",
-        help="Replay the pulse schedule into a logging backend (no physics yet).",
+        help="Replay the pulse schedule into a logging backend.",
+    )
+    parser.add_argument(
+        "--simulate-bloch",
+        action="store_true",
+        help="Replay the pulse schedule into a simple Bloch-sphere backend (per-qubit, independent).",
     )
     args = parser.parse_args()
 
@@ -680,8 +744,12 @@ def main():
     if args.pulse_table:
         print(schedule.to_table() if schedule else "(no pulse events)")
 
-    if args.simulate_pulses:
-        backend = LoggingPulseBackend()
+    if args.simulate_pulses or args.simulate_bloch:
+        backend: PulseBackend
+        if args.simulate_bloch:
+            backend = BlochSimulatorBackend()
+        else:
+            backend = LoggingPulseBackend()
         summary = PulseSimulator(backend).run(schedule or PulseSchedule())
         print(f"Pulse simulation complete: {summary}")
 

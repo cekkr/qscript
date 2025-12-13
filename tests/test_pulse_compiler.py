@@ -1,8 +1,14 @@
+import math
 import tempfile
 import unittest
 from pathlib import Path
 
-from compiler.qasm_compiler import LoggingPulseBackend, PulseScheduler, PulseSimulator
+from compiler.qasm_compiler import (
+    BlochSimulatorBackend,
+    LoggingPulseBackend,
+    PulseScheduler,
+    PulseSimulator,
+)
 from psi_lang import PsiScriptParser
 
 
@@ -87,6 +93,30 @@ class TestPulseCompiler(unittest.TestCase):
         self.assertEqual(summary["event_count"], 2)
         self.assertEqual(len(backend.events), 2)
         self.assertGreater(summary["duration_ns"], 0.0)
+
+    def test_bloch_backend_rotates_vectors(self):
+        script = """
+        let q = Register(1);
+        Analog(target: q[0]) {
+            Rotate(axis: X, angle: PI/2, duration: 10ns);
+            ShiftPhase(angle: PI/2);
+        }
+        """
+        path = _write_tmp_script(script)
+        parser = PsiScriptParser(str(path))
+        registers, _ = parser.parse()
+        schedule = PulseScheduler(parser, registers).build()
+
+        backend = BlochSimulatorBackend()
+        summary = PulseSimulator(backend).run(schedule)
+
+        final = summary["q[0]"]
+        # After Rx(pi/2), z -> 0, y -> -1. ShiftPhase (Z rotation) rotates x/y; magnitude stays ~1.
+        mag = math.sqrt(final["x"] ** 2 + final["y"] ** 2 + final["z"] ** 2)
+        self.assertAlmostEqual(mag, 1.0, places=6)
+        self.assertAlmostEqual(final["z"], 0.0, places=6)
+        self.assertAlmostEqual(final["x"], 1.0, places=6)
+        self.assertAlmostEqual(final["y"], 0.0, places=6)
 
 
 if __name__ == "__main__":

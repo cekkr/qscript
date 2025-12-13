@@ -122,8 +122,8 @@ Pulse timelines (Analog/Rotate/Wait/ShiftPhase/SetFreq/Play/Acquire) can be insp
 # Text table
 python compiler/qasm_compiler.py psiscripts/ghost_filter.psi --pulse-table
 
-# JSON + lightweight simulator (console backend)
-python compiler/qasm_compiler.py psiscripts/ghost_filter.psi --pulse-json build/ghost_filter.json --simulate-pulses
+# JSON + lightweight simulators (console logging or Bloch vectors)
+python compiler/qasm_compiler.py psiscripts/ghost_filter.psi --pulse-json build/ghost_filter.json --simulate-bloch
 ```
 
 The emitted QASM includes TODO comments where predicates are too complex to lower; extend `parse_conjunctive_controls` and the emitters to broaden coverage.

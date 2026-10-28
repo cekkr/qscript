@@ -1,8 +1,8 @@
 """
-Shared PsiScript helpers: parsing, dataclasses, and simple predicate utilities.
+Shared qscript helpers: parsing, dataclasses, and simple predicate utilities.
 
 Designed to be reused by the viewer (state simulator + visualizer)
-and the compiler (OpenQASM emitter). Updated for PsiScript v1.2 to
+and the compiler (OpenQASM emitter). Updated for qscript v1.2 to
 recognize the hybrid analog/pulse layer syntax while keeping legacy
 logic-layer flows intact.
 """
@@ -61,8 +61,8 @@ class StepSnapshot:
 # --- Parser ---
 
 
-class PsiScriptParser:
-    """Lightweight parser for the PsiScript samples in this repository."""
+class QScriptParser:
+    """Lightweight parser for the qscript samples in this repository."""
 
     def __init__(self, path: str):
         self.path = path
@@ -77,7 +77,7 @@ class PsiScriptParser:
         self._collect_registers(statements, registers)
 
         if not registers:
-            raise ValueError("No registers declared in the PsiScript.")
+            raise ValueError("No registers declared in the qscript.")
 
         operations: List[PsiOperation] = []
         default_register = next(iter(registers.keys()))

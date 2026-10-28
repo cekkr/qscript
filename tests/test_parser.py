@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from psi_lang import PsiScriptParser
+from psi_lang import QScriptParser
 
 
 def _write_tmp_script(content: str) -> Path:
@@ -26,7 +26,7 @@ class TestAnalogParsing(unittest.TestCase):
         }
         """
         path = _write_tmp_script(script)
-        registers, ops = PsiScriptParser(str(path)).parse()
+        registers, ops = QScriptParser(str(path)).parse()
 
         self.assertEqual(registers, {"q": 2})
         self.assertEqual([op.kind for op in ops], ["analog", "rotate", "wait", "shiftphase", "setfreq", "play", "acquire"])
@@ -47,7 +47,7 @@ class TestAnalogParsing(unittest.TestCase):
         }
         """
         path = _write_tmp_script(script)
-        registers, ops = PsiScriptParser(str(path)).parse()
+        registers, ops = QScriptParser(str(path)).parse()
 
         self.assertEqual(registers, {"q": 2})
         self.assertEqual([op.kind for op in ops], ["align", "branch", "rotate", "branch", "wait"])

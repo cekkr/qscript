@@ -1,5 +1,5 @@
 """
-PsiScript interference viewer (v1.2 sculpting + pulse lens).
+qscript interference viewer (v1.2 sculpting + pulse lens).
 
 This script loads a `.psi` program, simulates its quantum operations,
 and renders a 3D surface where height = probability density and color = phase.
@@ -11,9 +11,9 @@ recorded for timeline context but simulated as no-ops here; the viewer still
 focuses on logic-layer interference.
 
 Run locally (Python 3, numpy, matplotlib):
-    python viewer-references/psi_interference_viewer.py psiscripts/teleport.psi --seed 1
+    python viewer-references/psi_interference_viewer.py qscripts/teleport.psi --seed 1
 
-Limitations: geared toward the PsiScript samples in this repo (single register,
+Limitations: geared toward the qscript samples in this repo (single register,
 Superpose/Phase/Flip/Reflect/Measure). Classical guards (`when:`) are applied
 after sampling measurement outcomes.
 """
@@ -37,7 +37,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from psi_lang import (
     PsiOperation,
-    PsiScriptParser,
+    QScriptParser,
     StepSnapshot,
     build_classical_predicate,
     build_quantum_predicate,
@@ -300,9 +300,9 @@ class InterferenceViewer:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Visualize interference from a PsiScript program as a 3D surface."
+        description="Visualize interference from a qscript program as a 3D surface."
     )
-    parser.add_argument("script", help="Path to a .psi file (e.g., psiscripts/teleport.psi)")
+    parser.add_argument("script", help="Path to a .psi file (e.g., qscripts/teleport.psi)")
     parser.add_argument(
         "--register",
         help="Register name to track (defaults to the first declared register).",
@@ -315,7 +315,7 @@ def main():
     )
     args = parser.parse_args()
 
-    ps_parser = PsiScriptParser(args.script)
+    ps_parser = QScriptParser(args.script)
     registers, operations = ps_parser.parse()
 
     target_register = args.register or next(iter(registers.keys()))

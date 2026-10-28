@@ -1,8 +1,8 @@
-# PsiScript / qscript (v1.2)
+# qscript (v1.2)
 
 (Concept phase)
 
-PsiScript now blends two layers:
+qscript now blends two layers:
 - **Logic Layer (Interference Sculpting):** Expand a $2^N$ space, tag regions with complex phase, trigger interference, and pivot/route indices with four primitives (`Superpose`, `Phase`, `Reflect`, `Flip`).
 - **Pulse Layer (Geometric Trajectories):** Drop into `Analog { ... }` to describe the actual rotations, waits, and frame updates that drive a qubit.
 
@@ -39,14 +39,14 @@ Pulse primitives:
 - `Align { branch ... }` expresses parallel branches that end together.
 
 ## How 4 Logic Primitives Cover the Usual Gate Zoo
-PsiScript keeps the surface small and lets the compiler choose gates. A few common patterns:
+qscript keeps the surface small and lets the compiler choose gates. A few common patterns:
 
 - `Superpose(targets: i)` → Hadamard on qubit *i*.
 - `Phase(angle: θ, where: reg[i])` → Z-rotation on *i*; add one control for CZ, two controls for CCZ, etc.
 - `Flip(target: t)` → X on *t*; add controls in `where` for CX / Toffoli / multi-controlled X (with automatic helper X for `== 0` guards).
 - `Reflect(axis: Axis.MEAN)` → Grover diffusion (H on all → X on all → multi-controlled Z → X on all → H on all).
 
-Gate sketches in PsiScript:
+Gate sketches in qscript:
 
 ```psi
 // CNOT (control 0, target 1)
@@ -70,11 +70,11 @@ Everything stays at the “constraint” level; synthesis decides whether to emi
 When you need hardware detail, drop into `Analog { ... }` to describe Bloch-sphere motion with explicit durations and envelopes. Use `Align` to show simultaneous branches (e.g., echo while a partner idles), and frame tools (`ShiftPhase`, `SetFreq`) to keep virtual Z tracking explicit. Pulse blocks compile into a Python-side pulse schedule via `compiler/qasm_compiler.py --pulse-*`; the QASM emitter still uses comments for pulse regions. The schedule can be replayed through a pluggable simulator backend (no physics yet).
 
 ## Repository Map
-- `PsiScript-Definition.md` – v1.2 hybrid manual (logic sculpting + analog layer).
+- `qscript-Definition.md` – v1.2 hybrid manual (logic sculpting + analog layer).
 - `definitions/v1.2-upgrade.md` – Zoom philosophy/narrative for the hybrid model.
-- `psiscripts/` – Worked examples (teleportation, Grover sculpting loop, QFT3 tagging, GHZ, BV, and pulse-level `ghost_filter` echo).
+- `qscripts/` – Worked examples (teleportation, Grover sculpting loop, QFT3 tagging, GHZ, BV, and pulse-level `ghost_filter` echo).
 - `viewer-references/` – Python helpers to visualize interference patterns and build intuition for phase tagging and collapse (`wave_viewer.py`, `psi_interference_viewer.py`).
-- `compiler/` – Experimental Python-based compiler that lowers PsiScript to OpenQASM (`qasm_compiler.py`).
+- `compiler/` – Experimental Python-based compiler that lowers qscript to OpenQASM (`qasm_compiler.py`).
 - `psi_lang.py` – Shared parser/predicate utilities used by the viewer and compiler.
 
 ## Visualizing Interference (Python)
@@ -88,22 +88,22 @@ python viewer-references/wave_viewer.py
 ```
 Try toggling the Gaussian packet setup vs. the harmonic oscillator section to see how interference and phase coloring relate to circuit-level phase logic.
 
-### Step-by-step PsiScript playback
+### Step-by-step qscript playback
 `viewer-references/psi_interference_viewer.py` loads a `.psi` file, simulates each primitive, and shows a 3D surface where height = probability density and color = phase. Use the slider/buttons to watch the sculpting process (phase tags → reflect → collapse) and see measurement events annotated in the title. Pulse-layer steps are logged as timeline context (no microwave simulation yet).
 
 ```bash
 # Teleportation, deterministic measurements via seed
-python viewer-references/psi_interference_viewer.py psiscripts/teleport.psi --seed 1
+python viewer-references/psi_interference_viewer.py qscripts/teleport.psi --seed 1
 
 # Choose a specific register if your script declares multiple
-python viewer-references/psi_interference_viewer.py psiscripts/qft_3.psi --register q
+python viewer-references/psi_interference_viewer.py qscripts/qft_3.psi --register q
 ```
 
 ## Learning the Language
-Start from `PsiScript-Definition.md` for syntax and the v1.2 hybrid semantics. Then open `psiscripts/EXAMPLES.md` and the `.psi` files to see how algorithms are expressed as “expand → tag → interfere → pivot → measure,” with optional `Analog` blocks for hardware-specific trajectories. As the compiler matures, the `compiler/` area will house the OpenQASM transpilation pipeline so PsiScript can target real hardware backends.
+Start from `qscript-Definition.md` for syntax and the v1.2 hybrid semantics. Then open `qscripts/EXAMPLES.md` and the `.psi` files to see how algorithms are expressed as “expand → tag → interfere → pivot → measure,” with optional `Analog` blocks for hardware-specific trajectories. As the compiler matures, the `compiler/` area will house the OpenQASM transpilation pipeline so qscript can target real hardware backends.
 
 ## Compiling to OpenQASM (experimental)
-`compiler/qasm_compiler.py` is a best-effort translator from PsiScript to OpenQASM 2.0 (qelib1). It lowers:
+`compiler/qasm_compiler.py` is a best-effort translator from qscript to OpenQASM 2.0 (qelib1). It lowers:
 - `Superpose` → H on each target.
 - `Flip` → X/CX/CCX with automatic helper X gates for `== 0` controls.
 - `Phase` → U1/CU1 for simple conjunctive `where` predicates (up to two controls), TODO for larger cases.
@@ -114,16 +114,16 @@ Pulse-layer ops (`Analog`, `Rotate`, `Wait`, `ShiftPhase`, `SetFreq`, `Play`, `A
 
 Example:
 ```bash
-python compiler/qasm_compiler.py psiscripts/teleport.psi --out build/teleport.qasm
+python compiler/qasm_compiler.py qscripts/teleport.psi --out build/teleport.qasm
 ```
 
 Pulse timelines (Analog/Rotate/Wait/ShiftPhase/SetFreq/Play/Acquire) can be inspected or simulated directly from Python:
 ```bash
 # Text table
-python compiler/qasm_compiler.py psiscripts/ghost_filter.psi --pulse-table
+python compiler/qasm_compiler.py qscripts/ghost_filter.psi --pulse-table
 
 # JSON + lightweight simulators (console logging or Bloch vectors)
-python compiler/qasm_compiler.py psiscripts/ghost_filter.psi --pulse-json build/ghost_filter.json --simulate-bloch
+python compiler/qasm_compiler.py qscripts/ghost_filter.psi --pulse-json build/ghost_filter.json --simulate-bloch
 ```
 
 The emitted QASM includes TODO comments where predicates are too complex to lower; extend `parse_conjunctive_controls` and the emitters to broaden coverage.

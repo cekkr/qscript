@@ -9,7 +9,7 @@ from compiler.qasm_compiler import (
     PulseScheduler,
     PulseSimulator,
 )
-from psi_lang import PsiScriptParser
+from psi_lang import QScriptParser
 
 
 def _write_tmp_script(content: str) -> Path:
@@ -31,7 +31,7 @@ class TestPulseCompiler(unittest.TestCase):
         }
         """
         path = _write_tmp_script(script)
-        parser = PsiScriptParser(str(path))
+        parser = QScriptParser(str(path))
         registers, _ = parser.parse()
         schedule = PulseScheduler(parser, registers).build()
 
@@ -57,7 +57,7 @@ class TestPulseCompiler(unittest.TestCase):
         }
         """
         path = _write_tmp_script(script)
-        parser = PsiScriptParser(str(path))
+        parser = QScriptParser(str(path))
         registers, _ = parser.parse()
         schedule = PulseScheduler(parser, registers).build()
 
@@ -83,7 +83,7 @@ class TestPulseCompiler(unittest.TestCase):
         }
         """
         path = _write_tmp_script(script)
-        parser = PsiScriptParser(str(path))
+        parser = QScriptParser(str(path))
         registers, _ = parser.parse()
         schedule = PulseScheduler(parser, registers).build()
 
@@ -103,7 +103,7 @@ class TestPulseCompiler(unittest.TestCase):
         }
         """
         path = _write_tmp_script(script)
-        parser = PsiScriptParser(str(path))
+        parser = QScriptParser(str(path))
         registers, _ = parser.parse()
         schedule = PulseScheduler(parser, registers).build()
 

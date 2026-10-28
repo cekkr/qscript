@@ -1,18 +1,18 @@
 """
-PsiScript -> OpenQASM 2.0 sketch compiler + pulse scheduler.
+qscript -> OpenQASM 2.0 sketch compiler + pulse scheduler.
 
-This is intentionally minimal: it lowers the common PsiScript samples into
+This is intentionally minimal: it lowers the common qscript samples into
 qelib1 gates, emits comments when a predicate is too complex to lower, and
 keeps classical guards (`when:`) as OpenQASM `if` statements. Pulse-layer
 sections are converted into a timestamped schedule that can be simulated
 through a pluggable backend interface.
 
-PsiScript v1.2 adds an Analog/pulse layer. Those operations are parsed but not
+qscript v1.2 adds an Analog/pulse layer. Those operations are parsed but not
 lowered here; they are emitted as comments to preserve intent in the output.
 
 Run (from repo root):
-    python compiler/qasm_compiler.py psiscripts/teleport.psi --out build/teleport.qasm
-    python compiler/qasm_compiler.py psiscripts/ghost_filter.psi --pulse-table
+    python compiler/qasm_compiler.py qscripts/teleport.psi --out build/teleport.qasm
+    python compiler/qasm_compiler.py qscripts/ghost_filter.psi --pulse-table
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from psi_lang import PsiOperation, PsiScriptParser, parse_conjunctive_controls
+from psi_lang import PsiOperation, QScriptParser, parse_conjunctive_controls
 
 
 PULSE_KINDS = {"rotate", "wait", "shiftphase", "setfreq", "play", "acquire"}
@@ -104,11 +104,11 @@ class PulseSchedule:
 
 
 class PulseScheduler:
-    """Build a timestamped pulse schedule by walking parsed PsiScript statements."""
+    """Build a timestamped pulse schedule by walking parsed qscript statements."""
 
     def __init__(
         self,
-        parser: PsiScriptParser,
+        parser: QScriptParser,
         registers: Dict[str, int],
         default_register: Optional[str] = None,
         target_register: Optional[str] = None,
@@ -440,7 +440,7 @@ class QasmBuilder:
 
 
 class OpenQasmCompiler:
-    """Very small translator for PsiScript primitives into OpenQASM 2 gates."""
+    """Very small translator for qscript primitives into OpenQASM 2 gates."""
 
     def __init__(self, register: str, num_qubits: int):
         self.register = register
@@ -678,7 +678,7 @@ class OpenQasmCompiler:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Compile a PsiScript file into OpenQASM 2.0 and a pulse schedule.")
+    parser = argparse.ArgumentParser(description="Compile a qscript file into OpenQASM 2.0 and a pulse schedule.")
     parser.add_argument("script", help="Path to .psi program to compile")
     parser.add_argument("--register", help="Register name to compile (defaults to first declared)")
     parser.add_argument("--out", type=Path, help="Destination .qasm file (stdout if omitted)")
@@ -704,7 +704,7 @@ def main():
     )
     args = parser.parse_args()
 
-    ps_parser = PsiScriptParser(args.script)
+    ps_parser = QScriptParser(args.script)
     registers, operations = ps_parser.parse()
     target_register = args.register or next(iter(registers.keys()))
     if target_register not in registers:

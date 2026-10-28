@@ -1,8 +1,8 @@
-# AI References — PsiScript v1.2
+# AI References — qscript v1.2
 
 Quick anchors to the v1.2 **Hybrid (Logic ↔ Pulse)** model so follow-up prompts do not need to re-derive the mental model.
 
-- **Core sources:** `PsiScript-Definition.md` (v1.2 hybrid manual), `definitions/v1.2-upgrade.md` (Zoom philosophy), `psiscripts/` (logic + analog examples), `viewer-references/` (interference visuals), `compiler/qasm_compiler.py` + `psi_lang.py` (parsing/lowering stubs).
+- **Core sources:** `qscript-Definition.md` (v1.2 hybrid manual), `definitions/v1.2-upgrade.md` (Zoom philosophy), `qscripts/` (logic + analog examples), `viewer-references/` (interference visuals), `compiler/qasm_compiler.py` + `psi_lang.py` (parsing/lowering stubs).
 - **Mental model:** Start at the logic layer to sculpt the $2^N$ space (`Superpose` → `Phase` → `Reflect` → `Flip`). When you need hardware detail, drop into `Analog { ... }` to specify **geometric pulse trajectories** with durations and waveforms. `where:` is quantum-time tagging; `when:` is classical-time gating; `Analog` suspends `where` and switches to explicit time.
 - **Primitive cheat sheet (logic):**  
   - `Superpose(targets)` → expansion via Hadamards.  
@@ -15,9 +15,9 @@ Quick anchors to the v1.2 **Hybrid (Logic ↔ Pulse)** model so follow-up prompt
   - `Play(waveform, channel)`, `Acquire(duration, kernel)` → raw emit/readout.  
   - `Align { branch ... }` → parallel branches that end together.
 - **Example pointers:**  
-  - Logic sculpting: `psiscripts/grover_sat.psi` (tag → reflect → repeat), `psiscripts/qft_3.psi` (frequency etches), `psiscripts/teleport.psi` (classical `when:` guards).  
-  - Pulse flow: `psiscripts/ghost_filter.psi` (echo-style analog block inside an Align).  
-  - Frequency tagging: `psiscripts/bernstein_vazirani.psi`; GHZ/Bell for entanglement scaffolding.
+  - Logic sculpting: `qscripts/grover_sat.psi` (tag → reflect → repeat), `qscripts/qft_3.psi` (frequency etches), `qscripts/teleport.psi` (classical `when:` guards).
+  - Pulse flow: `qscripts/ghost_filter.psi` (echo-style analog block inside an Align).
+  - Frequency tagging: `qscripts/bernstein_vazirani.psi`; GHZ/Bell for entanglement scaffolding.
 - **Python helpers:**  
   - Viewer: `viewer-references/psi_interference_viewer.py` visualizes logic-layer interference; pulse ops are recorded as timeline notes (no microwave simulation).  
   - Wave intuition: `viewer-references/wave_viewer.py` sketches interference patterns for teaching.  

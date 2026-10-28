@@ -1,10 +1,10 @@
 # The Quantum Advantage: From "Trying" to "Sculpting"
 
-To understand why we built PsiScript, we must correct the most common misconception in computing: **Quantum computers do not just "try every combination at once."**
+To understand why we built qscript, we must correct the most common misconception in computing: **Quantum computers do not just "try every combination at once."**
 
 If a quantum computer merely placed every possibility in superposition and measured it, the result would be random noise. You would have a 1 in 10,000 chance of success—no better than a blind guess.
 
-The true power of quantum computing (and PsiScript) is not **coexistence**, but **interference**. We do not scan data; we sculpt the probability waves so that wrong answers cancel out and the right answer amplifies itself.
+The true power of quantum computing (and qscript) is not **coexistence**, but **interference**. We do not scan data; we sculpt the probability waves so that wrong answers cancel out and the right answer amplifies itself.
 
 -----
 
@@ -15,7 +15,7 @@ First, how do we represent data?
   * **Classical:** To search 10,000 items (e.g., a PIN code 0000-9999), you need memory for 10,000 integers.
   * **Quantum:** We use **qubits**. Since $2^{14} = 16,384$, we only need **14 qubits** to create a space capable of indexing 10,000 items simultaneously.
 
-When you write `let q = Register(14)` in PsiScript, you aren't creating 14 variables. You are creating a single complex system with 16,384 dimensions.
+When you write `let q = Register(14)` in qscript, you aren't creating 14 variables. You are creating a single complex system with 16,384 dimensions.
 
 -----
 
@@ -32,7 +32,7 @@ Imagine an ocean where every possible answer is a wave. Initially, we create a *
 
 ### Phase II: The Tag (The "Oracle")
 
-This is where the PsiScript `where:` clause comes in. We don't "read" the waves; we simply apply a rule.
+This is where the qscript `where:` clause comes in. We don't "read" the waves; we simply apply a rule.
 
   * **The Command:** "Where the PIN is 1234, flip the phase."
   * **The Physics:** We apply a pulse that interacts only with the state `1234`.
@@ -54,9 +54,9 @@ Let's look at the geometry:
 
 -----
 
-## 3\. PsiScript Implementation: Logic vs. Pulse
+## 3\. qscript Implementation: Logic vs. Pulse
 
-PsiScript is designed to let you control this process at two different levels of abstraction.
+qscript is designed to let you control this process at two different levels of abstraction.
 
 ### Level 1: The Logic Layer (The Sculptor)
 
@@ -81,7 +81,7 @@ q.Reflect(axis: Axis.MEAN)
 
 Sometimes, the standard "Mirror" isn't perfect for the physical hardware. You might need to adjust the frequency or the shape of the wave to prevent errors.
 
-PsiScript v1.2 allows you to **Zoom** in. You can replace the high-level `Reflect` logic with raw hardware pulses using the `Analog` block.
+qscript v1.2 allows you to **Zoom** in. You can replace the high-level `Reflect` logic with raw hardware pulses using the `Analog` block.
 
 ```psi
 // Zooming in: Manually driving the interference pattern
@@ -101,7 +101,7 @@ Analog(target: q[0]) {
 
 ## Summary: The Developer's Shift
 
-| Feature | Classical Programming | Quantum (PsiScript) |
+| Feature | Classical Programming | Quantum (qscript) |
 | :--- | :--- | :--- |
 | **Search Strategy** | **Iterative:** Check A, then B, then C... | **Interference:** Cancel out A, B, C; Amplify D. |
 | **Variables** | Independent memory slots. | **Entangled Registers:** One object, $2^N$ states. |
@@ -135,7 +135,7 @@ Imagine a security system with a 4-bit "panic code" (0 to 15). We don't know the
 
 We want to find this code in **one shot** using constructive interference, rather than trying all 16 codes one by one.
 
-#### The PsiScript Code
+#### The qscript Code
 
 Here is the complete script. It mixes the **Logic Layer** (to define the search) with the **Pulse Layer** (to show how we physically "touch" the data).
 
@@ -280,7 +280,7 @@ Imagine 16 children on swings.
 
 ## 3\. Practical Example: Coding the Resonance
 
-In PsiScript, we can make this physical "push" explicit. We don't just ask for the result; we drive the system to resonate.
+In qscript, we can make this physical "push" explicit. We don't just ask for the result; we drive the system to resonate.
 
 ```psi
 // --- RESONANCE ENGINE: DETECTING 1101 ---

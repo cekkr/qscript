@@ -1,6 +1,6 @@
-# PsiScript v1.2 - Hybrid Reference Manual
+# qscript v1.2 - Hybrid Reference Manual
 
-PsiScript now supports the **Zoom Philosophy**: you can script at the logic layer (interference sculpting) or drop into the pulse layer (geometric drive trajectories). The language keeps the light JS/Python-flavored syntax, but you can now describe both *what* the algorithm should do and *how* the hardware should move.
+qscript now supports the **Zoom Philosophy**: you can script at the logic layer (interference sculpting) or drop into the pulse layer (geometric drive trajectories). The language keeps the light JS/Python-flavored syntax, but you can now describe both *what* the algorithm should do and *how* the hardware should move.
 
 ---
 

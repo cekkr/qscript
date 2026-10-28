@@ -1,8 +1,8 @@
-# PsiScript Algorithm Suite 🌌
+# qscript Algorithm Suite 🌌
 
-Welcome to the **PsiScript** examples repository.
+Welcome to the **qscript** examples repository.
 
-PsiScript v1.2 keeps the **Interference Sculpting** logic layer and adds a **pulse layer**. You still expand a massive block of possibilities, tag regions with complex phase, trigger interference, and pivot data—but you can now drop into `Analog { ... }` to describe the physical drive trajectories (rotations, waits, frame shifts) that make those logical moves happen.
+qscript v1.2 keeps the **Interference Sculpting** logic layer and adds a **pulse layer**. You still expand a massive block of possibilities, tag regions with complex phase, trigger interference, and pivot data—but you can now drop into `Analog { ... }` to describe the physical drive trajectories (rotations, waits, frame shifts) that make those logical moves happen.
 1. **Logic primitives:** `Superpose`, `Phase`, `Reflect`, `Flip`.
 2. **Pulse primitives:** `Analog`, `Rotate`, `Wait`, `ShiftPhase`, `SetFreq`, `Play`, `Acquire`, with `Align` for parallel branches.
 
@@ -80,7 +80,7 @@ PsiScript v1.2 keeps the **Interference Sculpting** logic layer and adds a **pul
 
 ---
 
-## 🛠 PsiScript Primitive Reference
+## 🛠 qscript Primitive Reference
 
 | Primitive | Syntax | Physics / Intent | Description |
 | :--- | :--- | :--- | :--- |
@@ -96,4 +96,4 @@ PsiScript v1.2 keeps the **Interference Sculpting** logic layer and adds a **pul
 | **Align / branch** | `Align { branch q[0] { ... } }` | **Parallel timing** | Run branches in parallel; finish when the longest branch ends. |
 
 ---
-*PsiScript v1.2 - Hybrid Logic/Pulse Framework*
+*qscript v1.2 - Hybrid Logic/Pulse Framework*

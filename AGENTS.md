@@ -9,7 +9,7 @@ This is the operational reference for agents working on qscript, a concept-phase
 3. [psi_lang.py](psi_lang.py), [compiler/qasm_compiler.py](compiler/qasm_compiler.py), and the [viewers](viewer-references/) establish current executable behavior. Inspect the owner before relying on a handbook claim.
 4. [qscript-Definition.md](qscript-Definition.md) describes intended v1.2 syntax and semantics. Preserve its quantum/classical/pulse distinction, but check implementation coverage: pulse definitions, application, and general control flow are not implemented.
 5. [README.md](README.md) owns the public overview and usage examples; [qscripts/EXAMPLES.md](qscripts/EXAMPLES.md) explains algorithm intent. Examples and prose are not proof of executable support.
-6. [AI_REFERENCES.md](AI_REFERENCES.md) indexes the conceptual model and TODOs. [definitions/v1.2-upgrade.md](definitions/v1.2-upgrade.md) explains the hybrid design; [definitions/v1.1-upgrade.md](definitions/v1.1-upgrade.md) supplies older sculpting rationale. Neither proves planned features exist.
+6. [definitions/v1.2-upgrade.md](definitions/v1.2-upgrade.md) explains the hybrid design; [definitions/v1.1-upgrade.md](definitions/v1.1-upgrade.md) supplies older sculpting rationale. Neither proves planned features exist. This handbook owns the agent quick reference and [planned-work snapshot](#planned).
 7. [explain/interference-basics.md](explain/interference-basics.md) and [the distribution notebook](explain/viewing-distribution.ipynb) are teaching material, not hardware or complexity contracts. Git history is historical context, not a feature registry.
 
 When these disagree, distinguish intended semantics from actual behavior and report the mismatch. Do not silently turn an implementation defect into a language rule. Fix code/documentation discrepancies within task scope and synchronize affected documents in the same change; otherwise record the unresolved gap here. Ask for direction when a conflict cannot be resolved safely.
@@ -19,10 +19,10 @@ When these disagree, distinguish intended semantics from actual behavior and rep
 - Read all applicable `AGENTS.md` files completely at task start, from the repository root to the target directory. This root file currently owns all subsystems; no nested instruction files exist.
 - Check the working tree and branch before editing; preserve unrelated changes. The project is a single repository with no tracked submodules, workspace manifests, or CI configuration.
 - Keep this file synchronized with durable changes: update file subsections and symbols when ownership moves; update contracts, feature status, interfaces, commands, tests, and gaps when their facts change. Do this in the same coherent edit batch, not a later cleanup.
-- Update [the manual](qscript-Definition.md), [README](README.md), [AI references](AI_REFERENCES.md), and [example guide](qscripts/EXAMPLES.md) when their governed facts change. Avoid duplicating the two upgrade narratives as competing implementation specifications.
+- Update [the manual](qscript-Definition.md), [README](README.md), and [example guide](qscripts/EXAMPLES.md) when their governed facts change. Keep agent conceptual anchors and TODOs in this handbook. Avoid duplicating the two upgrade narratives as competing implementation specifications.
 - Run focused tests for the affected parser/scheduler/backend behavior and the full standard-library suite before handoff. Semantic fixes require meaningful regression coverage; document current missing coverage rather than implying tests exist.
 - Treat `.psi` files and Python modules as source. `build/`, `dist/`, bytecode, virtual environments, and notebook checkpoints are derived/local paths ignored by [.gitignore](.gitignore). Do not edit generated QASM/JSON as the implementation or commit runtime output by accident.
-- Record future work and research in the existing TODO area of [AI_REFERENCES.md](AI_REFERENCES.md), or in a deliberately introduced authoritative design/backlog document. Label intent as planned; do not call an optimization or hardware capability implemented without code and validation.
+- Record future work and research in this handbook's [Planned section](#planned), or in a deliberately introduced authoritative design/backlog document. Label intent as planned; do not call an optimization or hardware capability implemented without code and validation.
 - No repository-specific branch, commit-message, version-tag, or release convention is defined. Follow explicit task instructions; do not invent a release process.
 - Before each commit, review the complete diff and changed durable facts, remove stale paths/workarounds, synchronize docs, validate links and whitespace, and include the handbook with the change it describes. Partial implementations must retain explicit scaffold/gap labels. Do not add a chronological commit diary here.
 - Report checks run, checks not run, and remaining limitations. Tasks with no changed durable knowledge do not require cosmetic handbook edits.
@@ -32,6 +32,24 @@ When these disagree, distinguish intended semantics from actual behavior and rep
 ### Preserve the three execution domains
 
 The logic vocabulary remains `Superpose`, `Phase`, `Reflect`, and `Flip`. `where:` describes a quantum predicate on basis states; `when:` describes a classical guard using measurement results. `Analog` addresses a physical wire with durations and frame operations. Do not reinterpret a classical outcome as a quantum control or claim that pulse metadata implements a logical oracle. The manual forbids `where:` inside analog scope; the parser does not currently enforce that boundary.
+
+### Hybrid model quick reference
+
+The v1.2 mental model is to sculpt a `2**N` state space through expansion → phase tagging → interference → routing, with measurement producing classical outcomes. Zoom into `Analog` for explicit pulse trajectories, timing, and waveform metadata. These are conceptual stages, not a mandatory operation order or proof of complete backend support.
+
+| Primitive | Conceptual role and current boundary |
+| --- | --- |
+| `Superpose(targets)` | Expansion via Hadamards; another application also decodes phase patterns. |
+| `Phase(angle, where)` | Tags matching amplitudes: `PI` changes their sign; fractional angles encode relative phase. Tagging alone does not delete probability or collapse the state. |
+| `Reflect(axis: Axis.MEAN)` | Mean reflection converts relative phase tags into probability changes through interference. |
+| `Flip(target, where?, when?)` | Pivots basis indices; quantum controls can entangle, while classical guards drive post-measurement corrections. |
+| `Analog(target: reg[i])` | Enters explicit pulse-time for a wire; `where:` does not belong in this scope. |
+| `Rotate(axis, angle, duration, shape?)` / `Wait(duration)` | Describes geometric motion and idle time. Shapes are retained metadata, not synthesized envelopes. |
+| `ShiftPhase(angle)` / `SetFreq(hz)` | Makes frame changes explicit; the ideal Bloch backend applies only the phase shift as a Z rotation. |
+| `Play(waveform, channel)` / `Acquire(duration, kernel)` | Describes raw waveform output/readout intent; current schedules retain events without physical emission or acquisition. |
+| `Align { branch ... }` | Starts branches together and advances enclosing time by the longest duration. |
+
+For conceptual examples, use [Grover](qscripts/grover_sat.psi) for tag/reflect cycles, [QFT](qscripts/qft_3.psi) for fractional phase tagging, [teleportation](qscripts/teleport.psi) for classical guards, [ghost filter](qscripts/ghost_filter.psi) for an aligned analog echo, [Bernstein–Vazirani](qscripts/bernstein_vazirani.psi) for parity phase tagging, and [Bell](qscripts/bell_pair.psi)/[GHZ](qscripts/ghz.psi) for entanglement scaffolding. Read their file subsections and known gaps before running them: Grover/Bernstein–Vazirani currently fail multiline parsing, and QFT remains a sketch.
 
 ### Share parsing; keep execution responsibilities separate
 
@@ -182,9 +200,9 @@ Hybrid Zoom design rationale: macro/micro views, directional rotations, parallel
 
 Public concept-phase overview, primitive explanations, repository map, viewer commands, and experimental compiler/schedule usage. Commands are examples backed by CLI source, not packaging metadata. Its blanket “no physics yet” scheduler description omits the ideal independent Bloch backend; read the actual backend limitations before extending it.
 
-### [AI_REFERENCES.md](AI_REFERENCES.md)
+### [AGENTS.md](AGENTS.md)
 
-Short conceptual anchors, example pointers, helper ownership, and the existing TODO list. Keep prospective predicate lowering, waveform libraries, hardware export, and CI work marked as planned. Its request to add analog tests is partly stale: parser/scheduler/backend tests now exist, although coverage remains narrow.
+Owns the agent operational map, hybrid-model quick reference, example pointers, implementation boundaries, and planned-work snapshot. Maintain conceptual anchors and TODOs here alongside verified source/test ownership. Parser/scheduler/backend tests already exist; planned coverage work extends them rather than starting from an untested analog layer.
 
 ### [explain/interference-basics.md](explain/interference-basics.md)
 
@@ -340,11 +358,18 @@ OpenQASM lowering, Python helper APIs, the statevector viewer, analytic illustra
 - The manual's no-`where` analog boundary is not enforced. Bare `Measure(reg)`, custom `def pulse`, `.apply`, general control flow, and joint-register semantics are absent. Predicate rewriting also does not robustly support `!=` or validate register identities.
 - The QFT sketch's advertised endpoint reversal is incomplete. Algorithm/distribution, QASM correctness, expression safety, and GUI coverage are absent; see the test map.
 - No dependency manifest, supported-platform matrix, CI, packaging, or release workflow exists. Viewer checks were not run locally because NumPy/Matplotlib are absent.
-- Public docs mix intended/implemented behavior: README understates ideal Bloch support, AI references partly understate existing analog tests, and teaching/upgrade documents show unsupported syntax. This handbook records the discrepancies; broad documentation/code repair is separate work.
+- Public docs mix intended/implemented behavior: README understates ideal Bloch support, and teaching/upgrade documents show unsupported syntax. This handbook records the discrepancies; broad documentation/code repair is separate work.
 
 ### Planned
 
-The existing TODOs in [AI_REFERENCES.md](AI_REFERENCES.md) point to broader predicate lowering, more parser/analog coverage and CI, waveform libraries, and hardware export/backends. The custom pulse-gate bridge is design intent in [the manual](qscript-Definition.md), not implemented dispatch. There is no ordered authoritative roadmap; do not invent priorities, dates, or feature commitments. Record newly agreed work in the existing TODO owner or an explicitly introduced roadmap.
+This section owns the current agent TODO snapshot. These items are design intent, not implemented capabilities or an ordered roadmap:
+
+- Broaden `where:` lowering beyond simple conjunctions through `parse_conjunctive_controls` and the gate emitters in [the compiler](compiler/qasm_compiler.py).
+- Extend parser/analog handling tests in [parser tests](tests/test_parser.py) and [pulse tests](tests/test_pulse_compiler.py), including the gaps in the test ownership map; introduce CI. Existing tests already cover basic analog parsing, scheduling, replay, and ideal rotations.
+- Explore waveform libraries and hardware backends for pulse export. Current pulse JSON/table output and replay hooks are scaffolding; QASM carries analog sections as comments, and ideal Bloch rotations do not model microwave physics.
+- Implement the custom pulse-gate bridge described in [the manual](qscript-Definition.md); `def pulse` / `.apply` dispatch is currently absent.
+
+Do not invent priorities, dates, or feature commitments. Record newly agreed future work and research here or in an explicitly introduced authoritative roadmap, and move items to implemented status only after code and validation establish support.
 
 ## Task Start and Handoff Checklist
 

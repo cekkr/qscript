@@ -1,6 +1,8 @@
 import math
 import tempfile
 import unittest
+import subprocess
+import sys
 from pathlib import Path
 
 from compiler.qasm_compiler import (
@@ -20,6 +22,14 @@ def _write_tmp_script(content: str) -> Path:
 
 
 class TestPulseCompiler(unittest.TestCase):
+    def test_simulate_bloch_alone_builds_schedule(self):
+        root = Path(__file__).resolve().parents[1]
+        result = subprocess.run([sys.executable, str(root / "compiler/qasm_compiler.py"),
+                                 str(root / "qscripts/ghost_filter.psi"), "--simulate-bloch"],
+                                capture_output=True, text=True, check=True)
+        self.assertIn("memory[0]", result.stdout)
+        self.assertNotIn("complete: {}", result.stdout)
+
     def test_simple_pulse_schedule(self):
         script = """
         let q = Register(1);

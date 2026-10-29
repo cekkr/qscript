@@ -1,0 +1,4 @@
+// Same Bell transform as bell_primitives.psi; no collapse, so U is defined.
+let pair = Register(2);
+pair.Gate(name: H, target: 0);
+pair.Gate(name: CX, targets: [0, 1]);

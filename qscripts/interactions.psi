@@ -1,0 +1,9 @@
+// Inspect entanglement generation, exchange, and measurement feed-forward.
+let pair = Register(2);
+pair.Interact(axes: XX, targets: [0, 1], angle: PI/2);
+pair.Turn(axis: Z, target: 1, angle: PI/2); // turn -i|11> into |11>
+pair.Gate(name: SQRTSWAP, targets: [0, 1]);
+pair.Gate(name: FSIM, targets: [0, 1], theta: PI/5, phi: PI/6);
+let alice = Measure(pair[0]);
+pair.Flip(target: 1, when: alice == 1);
+let output = pair.Measure();

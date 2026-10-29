@@ -1,14 +1,10 @@
 """
-qscript -> OpenQASM 2.0 sketch compiler + pulse scheduler.
+qscript -> experimental OpenQASM 2.0 compiler and pulse scheduler.
 
-This is intentionally minimal: it lowers the common qscript samples into
-qelib1 gates, emits comments when a predicate is too complex to lower, and
-keeps classical guards (`when:`) as OpenQASM `if` statements. Pulse-layer
-sections are converted into a timestamped schedule that can be simulated
-through a pluggable backend interface.
-
-qscript v1.2 adds an Analog/pulse layer. Those operations are parsed but not
-lowered here; they are emitted as comments to preserve intent in the output.
+Named gates expand through the shared sculpting primitives into qelib1 gates.
+Unsupported quantum predicates or classical guards raise errors. OpenQASM 2
+omits global phase; pulse operations remain comments in circuit output and
+become timestamped events in the separate pulse schedule/replay path.
 
 Run (from repo root):
     python compiler/qasm_compiler.py qscripts/teleport.psi --out build/teleport.qasm
@@ -414,6 +410,8 @@ class QasmBuilder:
 
     def ensure_creg(self, name: str, size: int):
         if name in self.cregs:
+            if self.cregs[name] != size:
+                raise ValueError(f"Classical register {name} already has size {self.cregs[name]}, requested {size}")
             return
         self.cregs[name] = size
 
@@ -440,7 +438,7 @@ class QasmBuilder:
 
 
 class OpenQasmCompiler:
-    """Very small translator for qscript primitives into OpenQASM 2 gates."""
+    """Translate named gates and supported sculpting predicates into qelib1."""
 
     def __init__(self, register: str, num_qubits: int):
         self.register = register
@@ -448,6 +446,7 @@ class OpenQasmCompiler:
         self.builder = QasmBuilder(register, num_qubits)
 
     def compile(self, operations: List[PsiOperation]) -> str:
+        self.builder = QasmBuilder(self.register, self.num_qubits)
         for op in operations:
             handler = getattr(self, f"_emit_{op.kind}", None)
             if handler:
@@ -458,19 +457,26 @@ class OpenQasmCompiler:
 
     # --- Emitters ---
 
+    def _emit_gate(self, op: PsiOperation):
+        from quantum_gates import decompose_gate, validate_gate
+        validate_gate(op.gate, op.targets, op.parameters, self.num_qubits)
+        if op.when:
+            self._lower_when_condition_or_raise(op.when)
+        self.builder.emit(f"// {op.gate}{tuple(op.parameters)} on {op.targets}" + (" adjoint" if op.inverse else ""))
+        for primitive in decompose_gate(op):
+            getattr(self, f"_emit_{primitive.kind}")(primitive)
+
     def _emit_superpose(self, op: PsiOperation):
         targets = range(self.num_qubits) if op.targets == ["ALL"] else op.targets
-        for q in targets:
-            self.builder.emit(f"h {self.register}[{q}];")
+        self._emit_with_when([f"h {self.register}[{q}];" for q in targets], op.when)
 
     def _emit_phase(self, op: PsiOperation):
         controls = parse_conjunctive_controls(op.predicate or "", op.register)
         if controls is None:
-            self.builder.emit(f"// TODO: Phase {op.angle} where {op.predicate} (non-conjunctive predicate)")
-            return
+            raise ValueError(f"QASM cannot lower Phase predicate: {op.predicate}")
         if not controls:
-            # Global phase on |1> states of qubit 0 (single-qubit diag)
-            self._emit_with_when([f"u1({op.angle}) {self.register}[0]; // global phase marker"], op.when)
+            if op.when: self._lower_when_condition_or_raise(op.when)
+            self.builder.emit(f"// Global phase exp(i*{op.angle}) omitted by OpenQASM 2" + (f" when {op.when}" if op.when else ""))
             return
 
         if len(controls) == 1:
@@ -497,14 +503,24 @@ class OpenQasmCompiler:
             self._emit_with_when(pre + body + post, op.when)
             return
 
-        self.builder.emit(f"// TODO: multi-control phase for predicate '{op.predicate}' not lowered")
+        # Compute the conjunction into clean ancillas, phase, then uncompute.
+        reg = self.register
+        anc = f"phase_anc_{reg}"
+        self.builder.ensure_qreg(anc, len(controls) - 2)
+        pre = [f"x {reg}[{q}];" for q, value in controls if value == 0]
+        compute = [f"ccx {reg}[{controls[0][0]}],{reg}[{controls[1][0]}],{anc}[0];"]
+        for i in range(2, len(controls) - 1):
+            compute.append(f"ccx {reg}[{controls[i][0]}],{anc}[{i-2}],{anc}[{i-1}];")
+        body = [f"cu1({op.angle}) {anc}[{len(controls)-3}],{reg}[{controls[-1][0]}];"]
+        self._emit_with_when(pre + compute + body + list(reversed(compute)) + list(reversed(pre)), op.when)
 
     def _emit_flip(self, op: PsiOperation):
         controls = parse_conjunctive_controls(op.predicate or "", op.register)
         target = op.targets[0]
         if controls is None:
-            self.builder.emit(f"// TODO: Flip target {target} where {op.predicate} (non-conjunctive predicate)")
-            return
+            raise ValueError(f"QASM cannot lower Flip predicate: {op.predicate}")
+        if target in [q for q, _ in controls]:
+            raise ValueError("Flip predicate must not depend on its target")
         if not controls:
             self._emit_with_when([f"x {self.register}[{target}];"], op.when)
             return
@@ -530,18 +546,24 @@ class OpenQasmCompiler:
             self._emit_with_when(pre + [f"ccx {self.register}[{c1}],{self.register}[{c2}],{self.register}[{target}];"] + post, op.when)
             return
 
-        self.builder.emit(f"// TODO: multi-control flip for predicate '{op.predicate}' not lowered")
+        start = len(self.builder.op_lines)
+        pre = [f"x {self.register}[{q}];" for q, value in controls if value == 0]
+        self._emit_multi_control_x([q for q, _ in controls], target)
+        lines = self.builder.op_lines[start:]
+        del self.builder.op_lines[start:]
+        self._emit_with_when(pre + lines + list(reversed(pre)), op.when)
 
     def _emit_reflect(self, op: PsiOperation):
         axis = (op.axis or "").upper()
         if "MEAN" not in axis:
-            self.builder.emit(f"// TODO: Reflect axis '{op.axis}' not lowered")
-            return
+            raise ValueError(f"Unsupported reflection axis: {op.axis}")
 
         n = self.num_qubits
+        start = len(self.builder.op_lines)
         # Grover diffusion: H^n X^n (multi-CZ) X^n H^n
         for q in range(n):
             self.builder.emit(f"h {self.register}[{q}];")
+
         for q in range(n):
             self.builder.emit(f"x {self.register}[{q}];")
 
@@ -554,17 +576,22 @@ class OpenQasmCompiler:
         for q in range(n):
             self.builder.emit(f"h {self.register}[{q}];")
 
+        # The standard diffusion network differs from 2|s><s|-I by -1.
+        lines = self.builder.op_lines[start:]
+        del self.builder.op_lines[start:]
+        self._emit_with_when(lines, op.when)
+        self.builder.emit("// Diffusion global phase -1 omitted by OpenQASM 2")
+
     def _emit_measure(self, op: PsiOperation):
         if op.measure_all:
             dest = op.classical_target or f"meas_{self.register}_{self.builder.tmp_counter}"
             self.builder.ensure_creg(dest, self.num_qubits)
-            self.builder.emit(f"measure {self.register} -> {dest};")
+            self._emit_with_when([f"measure {self.register} -> {dest};"], op.when)
             return
 
         dest = op.classical_target or self.builder.tmp_creg(1)
-        if dest not in self.builder.cregs:
-            self.builder.ensure_creg(dest, 1)
-        self.builder.emit(f"measure {self.register}[{op.targets[0]}] -> {dest}[0];")
+        self.builder.ensure_creg(dest, 1)
+        self._emit_with_when([f"measure {self.register}[{op.targets[0]}] -> {dest}[0];"], op.when)
 
     def _emit_analog(self, op: PsiOperation):
         self.builder.emit(f"// Analog scope for {op.register} {op.targets}: {op.raw}")
@@ -602,29 +629,24 @@ class OpenQasmCompiler:
                 self.builder.emit(line)
             return
 
-        cond = self._lower_when_condition(when)
-        if cond is None:
-            self.builder.emit(f"// TODO: when guard '{when}' not lowered")
-            for line in gate_lines:
-                self.builder.emit(line)
-            return
+        cond = self._lower_when_condition_or_raise(when)
 
         for line in gate_lines:
             self.builder.emit(f"if ({cond}) {line}")
 
+    def _lower_when_condition_or_raise(self, expr):
+        cond = self._lower_when_condition(expr)
+        if cond is None:
+            raise ValueError(f"QASM requires a measured classical register == integer: {expr}")
+        return cond
+
     def _lower_when_condition(self, expr: str) -> Optional[str]:
-        match = re.match(r"(\w+)\s*==\s*1", expr.strip())
+        match = re.fullmatch(r"(\w+)\s*==\s*(\d+)", expr.strip())
         if match:
-            name = match.group(1)
-            if name not in self.builder.cregs:
-                self.builder.ensure_creg(name, 1)
-            return f"{name}==1"
-        match = re.match(r"(\w+)\s*==\s*0", expr.strip())
-        if match:
-            name = match.group(1)
-            if name not in self.builder.cregs:
-                self.builder.ensure_creg(name, 1)
-            return f"{name}==0"
+            name, value = match.group(1), int(match.group(2))
+            if name not in self.builder.cregs or value >= 2 ** self.builder.cregs[name]:
+                return None
+            return f"{name}=={value}"
         return None
 
     def _emit_multi_control_z(self, controls: List[int], target: int):
@@ -715,7 +737,7 @@ def main():
     qasm = compiler.compile(filtered_ops)
 
     schedule: Optional[PulseSchedule] = None
-    wants_pulses = args.pulse_json or args.pulse_table or args.simulate_pulses
+    wants_pulses = args.pulse_json or args.pulse_table or args.simulate_pulses or args.simulate_bloch
     if wants_pulses:
         scheduler = PulseScheduler(
             ps_parser,

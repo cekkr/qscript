@@ -1,99 +1,73 @@
-# qscript Algorithm Suite 🌌
+# qscript examples
 
-Welcome to the **qscript** examples repository.
+All files use a single selected register. Register bitstrings are high-bit first,
+with q0 least significant. Logic gates run in the ideal statevector simulator;
+pulse steps are annotations there. See the [manual](../qscript-Definition.md) and
+[gate reference](../explain/gate-reference.md) for syntax and matrix conventions.
 
-qscript v1.2 keeps the **Interference Sculpting** logic layer and adds a **pulse layer**. You still expand a massive block of possibilities, tag regions with complex phase, trigger interference, and pivot data—but you can now drop into `Analog { ... }` to describe the physical drive trajectories (rotations, waits, frame shifts) that make those logical moves happen.
-1. **Logic primitives:** `Superpose`, `Phase`, `Reflect`, `Flip`.
-2. **Pulse primitives:** `Analog`, `Rotate`, `Wait`, `ShiftPhase`, `SetFreq`, `Play`, `Acquire`, with `Align` for parallel branches.
+| Script | Purpose and current boundary |
+| --- | --- |
+| [bell_pair.psi](bell_pair.psi) | Superpose q0, controlled Flip q1, then measure. Before collapse, amplitudes are (00+11)/sqrt(2); shots produce only 00/11. |
+| [bell_unitary.psi](bell_unitary.psi) / [bell_primitives.psi](bell_primitives.psi) | Equivalent named-gate and primitive Bell transforms without measurement; compare complete matrices with `--unitary`. |
+| [interactions.psi](interactions.psi) | RXX creates entanglement, followed by RZ, sqrt(SWAP), fSim, partial measurement and feed-forward. Step 1 shows zero local Bloch vectors and unit pair concurrence. |
+| [exchange.psi](exchange.psi) | Prepare 01, then XY exchange and Givens rotation before measurement. XY rotates within 01/10 rather than creating 00/11 population. |
+| [teleport.psi](teleport.psi) | Partial measurement and classical X/phase corrections on Bob's wire. The file starts with a zero payload; it is not a test of arbitrary-state teleportation. Everything remains local. |
+| [ghost_filter.psi](ghost_filter.psi) | Aligned analog echo description with a 90 ns schedule. Ideal independent Bloch replay is available, but noise suppression is not modeled. |
+| [grover_sat.psi](grover_sat.psi) | Two SAT oracle/mean-reflection cycles and measurement. Multiline calls now parse and simulate; its OR predicates are rejected by QASM. Comments are not success-probability guarantees. |
+| [qft_3.psi](qft_3.psi) | Complete positive-sign three-qubit QFT, including endpoint SWAP. Tests compare the entire transform with `exp(2 PI i j k/8)/sqrt(8)` for every input basis state. |
+| [ghz.psi](ghz.psi) | Prepare (000+111)/sqrt(2) before measurement. Its reduced pairs are classically correlated with zero pair concurrence. |
+| [bernstein_vazirani.psi](bernstein_vazirani.psi) | Parity phase tagging and Hadamard decoding recover 101; the simulator regression checks this exact file. Multiline parsing works; QASM rejects its OR oracle. |
+| [odder.psi](odder.psi) | Existing carry/sum sketch: no input preparation or measurement, and an unused fourth wire. Arithmetic correctness remains untested. |
 
----
+## Run and compare
 
-## 📂 Script Breakdown
+```sh
+python3 -m pip install -r requirements-viewer.txt
+python3 viewer-references/psi_interference_viewer.py qscripts/interactions.psi qscripts/exchange.psi --seed 1 --shots 500
+python3 viewer-references/psi_interference_viewer.py qscripts/ghz.psi --qubits 0 2 --step 3
+python3 viewer-references/psi_interference_viewer.py qscripts/qft_3.psi --initial 101
 
-### 1. `bell_pair.psi` (The "Hello World" of Quantum)
-**Goal:** Create a pair of entangled qubits (EPR Pair). This is the fundamental unit of quantum connectivity.
+MPLBACKEND=Agg python3 viewer-references/psi_interference_viewer.py qscripts/bell_unitary.psi qscripts/bell_primitives.psi --unitary --report build/bell.json --save build/bell.png --no-show
+python3 compiler/qasm_compiler.py qscripts/interactions.psi --out build/interactions.qasm
+python3 compiler/qasm_compiler.py qscripts/ghost_filter.psi --pulse-table --simulate-bloch
+```
 
-* **Step 1: Initialization.** `let pair = Register(2)` seeds the 4-state space.
-* **Step 2: Expansion.** `pair.Superpose(targets: 0)` creates the raw block (`|00> + |10>`).
-* **Step 3: Pivot to entangle.** `pair.Flip(target: 1, where: pair[0] == 1)` routes half the block so tags align; the surviving realities become `|00>` and `|11>`.
-* **Outcome:** The qubits are perfectly correlated; measurement collapses to either `00` or `11`.
+Left/right steps through a circuit. Q changes the selected wire pair, C changes
+circuits, W switches probability/real/imaginary amplitude, and M switches matrix
+real/imaginary components. The matrix panels compare analytic gates with their
+primitive expansion, retaining global phase in the simulator. `--report` exports
+complex values and diagnostics. `--unitary` requires a circuit with no measurement,
+guard or pulse annotation; `--shots` reruns all measurements and corrections.
 
----
+## Small primitive core
 
-### 2. `teleport.psi` (Quantum Teleportation)
-**Goal:** Transmit the exact quantum state of a "Payload" qubit to a distant location using entanglement and classical communication.
+- `Superpose`: Hadamards; repeated application can decode phase patterns.
+- `Phase`: exp(i angle) on matching basis states, or a global phase without `where`.
+- `Flip`: X on a target with quantum `where` or classical `when`; quantum conditions
+  must be invariant under flipping the target.
+- `Reflect`: full-register inversion about the mean.
+- `Turn`, `Interact`, and named `Gate` calls expand into this core. They are logical
+  unitaries, distinct from timed `Rotate` inside the analog layer.
+- `Analog`, `Rotate`, `Wait`, frame operations, `Play`, `Acquire` and `Align` retain
+  pulse-time intent. Acquisition events do not measure the logic simulator.
 
-* **Step 1: Build the bridge.** `let system = Register(3)` then `system.Superpose(targets: 1)` and `system.Flip(target: 2, where: system[1] == 1)` sculpt an EPR backbone.
-* **Step 2: Alice tags the payload into the bridge.** `Flip` and `Superpose` entangle Q0 with Q1 so the payload’s phase information is spread across the shared hyperspace.
-* **Step 3: Collapse on Alice's side.** `let c1 = Measure(system[0]); let c2 = Measure(system[1]);` slices away her portion of the block.
-* **Step 4: Classical transfer.** Alice forwards `(c1, c2)`; no quantum link remains.
-* **Step 5: Bob pivots using classical guards.** `system.Flip(target: 2, when: c2 == 1)` and `system.Phase(angle: PI, where: system[2] == 1, when: c1 == 1)` align the surviving reality. Qubit 2 matches the original payload.
+One-qubit mixedness or a nonzero correlation is not itself proof of pair
+entanglement. The viewer supplies both concurrence and mutual information;
+measurements retain their pre-collapse probabilities beside the collapsed state.
 
----
+## Continuous wave lens
 
-### 3. `ghost_filter.psi` (Pulse Echo / Dynamical Decoupling)
-**Goal:** Keep a single qubit “alive” while it idles by applying an echo sequence at the pulse layer.
-
-* **Step 1: Seed the register.** `let memory = Register(1)` then `memory.Superpose(targets: ALL)` preps the block.
-* **Step 2: Pulse layer echo.** Inside `Analog(target: memory[0])` a `Rotate`–`Wait`–`Rotate` sequence with explicit durations and shapes cancels accumulated phase noise. Wrapped in `Align` to emphasize the time-aligned flow.
-* **Step 3: Measure.** Collapse to see the survived amplitude after the pulse treatment.
-
----
-
-### 4. `grover_sat.psi` (3-SAT Solver / Database Search)
-**Goal:** Find the specific input variables that satisfy a complex boolean formula without checking them one by one.
-
-* **Step 1: Expand the search space.** `logic_space.Superpose(targets: ALL)` instantiates all 8 candidates.
-* **Step 2: Tag the target.** `logic_space.Phase(angle: PI, where: ...)` marks satisfying states with a negative phase (the delete tag).
-* **Step 3: Interfere.** `logic_space.Reflect(axis: Axis.MEAN)` converts the tag into amplitude gain for the marked candidate and suppression for everything else.
-* **Step 4: Iterate sculpting.** Repeat the tag + reflect pair to sharpen the solution before measurement.
-
----
-
-### 5. `qft_3.psi` (Quantum Fourier Transform)
-**Goal:** Transform data from amplitude encoding to frequency encoding. This is the engine behind Shor's Algorithm (breaking encryption).
-
-* **Logic:** QFT encodes frequency into **phase tags** that fall off geometrically. The tags, not rotations, are the payload.
-* **Step 1: MSB tagging.** Superpose Q0, then apply coarse/fine tags (`PI/2`, `PI/4`) conditioned on lower qubits to encode periodicity.
-* **Step 2 & 3: Middle/LSB.** Repeat tagging for Q1 and Q2 with decreasing angles.
-* **Step 4: Pivot order.** Swap ends with `Flip` so the frequency bits emerge in the standard order.
-* *Note:* This shows `Phase` as frequency etching, not deletion.
-
----
-
-### 6. `ghz.psi` (Three-Way Entanglement)
-**Goal:** Build a GHZ state `( |000> + |111> ) / sqrt(2)` that shows perfect three-party correlation.
-
-* **Step 1: Seed the block.** `ghz.Superpose(targets: 0)` starts the two-peak landscape.
-* **Step 2: Pivot to share phase.** Controlled `Flip` calls copy the phase tag to the remaining qubits.
-* **Outcome:** Only `000` or `111` survive collapse; mixed outcomes vanish.
-
----
-
-### 7. `bernstein_vazirani.psi` (Hidden String Recovery)
-**Goal:** Learn a hidden classical string `s` with a single oracle query using phase kickback.
-
-* **Step 1: Spread queries.** `bv.Superpose(targets: ALL)` expands to every candidate.
-* **Step 2: Phase oracle.** `bv.Phase(angle: PI, where: ...)` tags any query with parity 1 with a negative amplitude.
-* **Step 3: Decode tags.** Another `bv.Superpose(targets: ALL)` converts the phase pattern back into amplitude peaks.
-* **Outcome:** Measurement yields `101` with certainty; the negative tag was sculpted into a unique survivor.
-
----
-
-## 🛠 qscript Primitive Reference
-
-| Primitive | Syntax | Physics / Intent | Description |
-| :--- | :--- | :--- | :--- |
-| **Superpose** | `.Superpose(targets: ALL | [i...])` | **Hadamard (H)** | Expansion: create the block of possibilities. |
-| **Phase** | `.Phase(angle: θ, where: predicate)` | **Z / Controlled Phase / Oracle** | Chisel: tag regions in the imaginary plane (delete tags or frequency tags). |
-| **Reflect** | `.Reflect(axis: Axis.MEAN)` | **Diffusion Operator** | Interference trigger: turn tags into probability changes. |
-| **Flip** | `.Flip(target: i, where: predicate \| when: classical)` | **X / CNOT / Toffoli** | Pivot: reroute indices / apply classical fixes without new tags. |
-| **Analog** | `Analog(target: reg[i]) { ... }` | **Enter pulse-time** | Drive a specific wire with explicit durations; suspends `where:`. |
-| **Rotate** | `Rotate(axis: X, angle: PI/2, duration: 20ns, shape: Gaussian(...))` | **Bloch trajectory** | Physical rotation with a shaped envelope. |
-| **Wait** | `Wait(duration: 10ns)` | **Idle / free evolution** | Explicit buffer time. |
-| **ShiftPhase / SetFreq** | `ShiftPhase(angle: PI/8)`, `SetFreq(hz: 5.1e9)` | **Frame ops** | Virtual Z or drive-frame hop. |
-| **Play / Acquire** | `Play(waveform, channel)`, `Acquire(duration: 300ns, kernel: boxcar)` | **Raw emit/readout** | Arbitrary waveform playback and readout capture. |
-| **Align / branch** | `Align { branch q[0] { ... } }` | **Parallel timing** | Run branches in parallel; finish when the longest branch ends. |
-
----
-*qscript v1.2 - Hybrid Logic/Pulse Framework*
+The circuit viewer defaults to `--view waves`: before/during/after continuous
+3D surfaces with a gate-fraction slider and Play/pause. `--wave-mode real` or
+`imaginary` shows signed wave amplitudes; density is the default. Use
+`--view workbench` for the diagnostic panels described above.
+The wave encoding uses Gaussian phi0 and first Hermite phi1 modes:
+Psi(x,y) = sum_ab c_ab phi_a(x) phi_b(y), in selected operand order.
+These orthonormal coordinates illustrate interference and entanglement; they
+are not hardware position or microwave fields. Mixed reductions display the
+density kernel diagonal instead of a fabricated pure wavefunction. Gate
+interpolation uses principal eigenphases of the ideal unitary; measurements
+jump at fraction 1 and pulse annotations remain unchanged.
+See the README screenshots and `assets/generate_screenshots.py` for reproducible
+XX, XY, phase and measurement examples; `qscripts/wave_interference.psi` gives
+a phase-tag/decode circuit (H Z H = X) followed by exchange.

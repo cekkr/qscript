@@ -1,0 +1,7 @@
+// Phase tagging followed by decoding: H Z H = X.
+let pair = Register(2);
+pair.Superpose(targets: 0);
+pair.Phase(angle: PI, where: pair[0] == 1);
+pair.Superpose(targets: 0);
+pair.Interact(axes: XY, targets: [0, 1], angle: PI/2);
+let output = pair.Measure();

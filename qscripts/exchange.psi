@@ -1,0 +1,6 @@
+// Compare a partial iSWAP with the Bell-generating XX interaction.
+let pair = Register(2);
+pair.Flip(target: 0);
+pair.Interact(axes: XY, targets: [0, 1], angle: PI/2);
+pair.Gate(name: GIVENS, targets: [0, 1], angle: PI/7);
+let output = pair.Measure();

@@ -1,0 +1,3 @@
+# Optional; parsing, gate references and OpenQASM need only Python's stdlib.
+numpy>=1.24
+matplotlib>=3.7

@@ -1,19 +1,10 @@
-let q = Register(3); // 3-qubit QFT sketch (frequency tagging view)
-// Input: Some superposition of data...
-
-// --- STEP 1: Most Significant Bit tagging ---
-q.Superpose(targets: 0); // Expansion for MSB path
-// Frequency etching relative to lower bits (coarse then fine)
-q.Phase(angle: PI/2, where: q[0] == 1 && q[1] == 1); // Tag periodicity vs Q1
-q.Phase(angle: PI/4, where: q[0] == 1 && q[2] == 1); // Finer tag vs Q2
-
-// --- STEP 2: Middle Bit tagging ---
+// Positive-sign QFT: U[j,k] = exp(2*PI*i*j*k/8)/sqrt(8).
+// Register labels print |q2 q1 q0>; start from the most significant wire.
+let q = Register(3);
+q.Superpose(targets: 2);
+q.Phase(angle: PI/2, where: q[2] == 1 && q[1] == 1);
+q.Phase(angle: PI/4, where: q[2] == 1 && q[0] == 1);
 q.Superpose(targets: 1);
-q.Phase(angle: PI/2, where: q[1] == 1 && q[2] == 1); // Coarse tag vs LSB
-
-// --- STEP 3: Least Significant Bit ---
-q.Superpose(targets: 2); // No conditional tag needed at the end
-
-// --- PIVOT: reverse bit order back into standard layout ---
-q.Flip(target: 0, where: q[2] == 1); // Swap endpoints via conditional pivots
-q.Flip(target: 2, where: q[0] == 1);
+q.Phase(angle: PI/2, where: q[1] == 1 && q[0] == 1);
+q.Superpose(targets: 0);
+q.Gate(name: SWAP, targets: [0, 2]);

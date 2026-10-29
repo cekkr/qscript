@@ -4,6 +4,10 @@ All files use a single selected register. Register bitstrings are high-bit first
 with q0 least significant. Logic gates run in the ideal statevector simulator;
 pulse steps are annotations there. See the [manual](../qscript-Definition.md) and
 [gate reference](../explain/gate-reference.md) for syntax and matrix conventions.
+For a line-by-line introduction to Bell states, phase interference and controls,
+start with the [learning manual](../qscript-Definition.md#1-a-first-program-line-by-line).
+Its [primitive recipes](../qscript-Definition.md#7-reading-primitive-recipes) explain
+how the named gates in these examples reduce to Superpose, Phase and Flip.
 
 | Script | Purpose and current boundary |
 | --- | --- |

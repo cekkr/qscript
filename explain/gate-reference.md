@@ -11,6 +11,8 @@ and a separate `decompose_gate(operation)` implementation. Every named gate
 expands into **Superpose, Phase, and Flip**. Reflect remains the mean-reflection
 primitive. `Turn`, `Interact`, and `Gate` are readable conveniences, not new
 irreducible instructions or pulse operations. Parameter angles are radians.
+For an introduction without assumed quantum background and explicit sequences
+in execution order, see the [manual's primitive recipes](../qscript-Definition.md#7-reading-primitive-recipes).
 
 ## Operands, phases, and usage
 
@@ -169,7 +171,7 @@ qubits) and compares equal-sized supplied circuits, including a comparison up
 to global phase. Measurements, classical guards, and pulse annotations do not
 define a single circuit unitary and are rejected by that option.
 
-The joint wavefunction uses discrete basis bars: probability is |amplitude|²,
+The diagnostic workbench (`--view workbench`) uses discrete basis bars: probability is |amplitude|²,
 and color is phase. W switches to signed real/imaginary amplitudes. These are
 register amplitudes, not a physical spatial wavefunction. The standalone
 `wave_viewer.py` remains an analytic spatial teaching model.

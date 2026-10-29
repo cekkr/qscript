@@ -222,6 +222,14 @@ ghost_filter emits a 90 ns pulse schedule, without modeling noise suppression.
 [README](README.md) owns public setup/commands; [manual](qscript-Definition.md) owns
 implemented syntax versus planned bridging. [Gate reference](explain/gate-reference.md)
 owns the catalog, mathematical definitions, diagnostics and source conventions.
+The manual also owns the beginner learning path and execution-order primitive
+recipes: it defines amplitudes, phase, controls and bit order before giving
+single-wire, interaction, swap and controlled-unitary constructions. Recipe
+arrows run left to right; conventional matrix products run right to left.
+Some hand-written recipes are shorter exact equivalents of the emitted Euler
+sequences; quantum_gates.decompose_gate remains the executable source of truth.
+When changing synthesis, validate the manual's paired runnable examples and
+its phase/angle conventions against that owner, not just the recipe prose.
 Upgrade/teaching prose still contains planned/unsupported constructs: def pulse,
 .apply, repeat, whole-register predicates and physical/speedup metaphors must not
 be read as implemented guarantees. The notebook builds independent four-qubit

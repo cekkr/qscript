@@ -179,7 +179,8 @@ in QASM and annotations in the circuit statevector viewer.
 
 ## References, tests, and implementation boundaries
 
-- [Language manual](qscript-Definition.md): implemented syntax versus planned pulse bridge.
+- [Language manual](qscript-Definition.md): a beginner walkthrough, amplitude/phase explanations, and implemented syntax versus planned pulse bridging.
+- [Primitive gate recipes](qscript-Definition.md#7-reading-primitive-recipes): execution-order expansions for the full catalog, including two-qubit interactions and controlled rotations.
 - [Example guide](qscripts/EXAMPLES.md): circuits, algorithms and their limitations.
 - [Gate/matrix reference](explain/gate-reference.md): complete catalog and math.
 - [Agent handbook](AGENTS.md): owners, contracts, known gaps and planned work.
